@@ -30,7 +30,7 @@
 /* Exported constants --------------------------------------------------------*/
 /* Defines for the Audio recording process */
 #define WR_BUFFER_SIZE           4096  /*  More the size is higher, the recorded quality is better */ 
-#define DEFAULT_TIME_REC         30000  /* Recording time in millisecond (Systick Time Base*TIME_REC= 1ms*30000)
+#define DEFAULT_TIME_REC         1500  /* Recording time in millisecond (Systick Time Base*TIME_REC= 1ms*30000)
                                         (default: 30s) */
 
 /* Exported macro ------------------------------------------------------------*/
