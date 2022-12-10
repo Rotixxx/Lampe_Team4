@@ -46,8 +46,9 @@ extern __IO uint32_t LEDsState;
 /* Save MEMS ID */
 uint8_t MemsID = 0; 
 
-__IO uint32_t CmdIndex = CMD_PLAY;
+__IO uint32_t CmdIndex = CMD_STOP;
 __IO uint32_t PbPressCheck = 0;
+__IO uint8_t statusLightStop = 0;
 
 FATFS USBDISKFatFs;          /* File system object for USB disk logical drive */
 char USBDISKPath[4];         /* USB Host logical drive path */
@@ -80,7 +81,7 @@ int main(void)
   */
   HAL_Init();
   
-  /* Configure LED3, LED4, LED5 and LED6 */
+  /* Configure LED3 -> ORANGE, LED4 -> GREEN, LED5 -> RED and LED6 -> BLUE*/
   BSP_LED_Init(LED3);
   BSP_LED_Init(LED4);
   BSP_LED_Init(LED5);
@@ -99,7 +100,7 @@ int main(void)
   MemsID = BSP_ACCELERO_ReadID();
   
   /* Turn ON LED4: start of application */
-  BSP_LED_On(LED4);
+  //BSP_LED_On(LED4);
   
   /* Configure TIM4 Peripheral to manage LEDs lighting */
   TIM_LED_Config();
@@ -232,10 +233,19 @@ static void COMMAND_AudioExecuteApplication(void)
     
     /* Start Recording in USB Flash memory */ 
   case CMD_RECORD:
-    RepeatState = REPEAT_ON;
+    // RepeatState = REPEAT_ON;
     WaveRecorderProcess();
     break;
     
+    /* Wait for next Recording in USB Flash memory */
+  case CMD_STOP:
+	  // GREEN LED on
+	  if (0 == statusLightStop)
+	  {
+		  LEDsState = LED4_TOGGLE;
+		  statusLightStop = 1;
+	  }
+	break;
   default:
     break;
   }
@@ -431,7 +441,7 @@ void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
     /* Turn ON LED6 */
     BSP_LED_On(LED6);
   }
-  else if (LEDsState == LEDS_OFF)
+  else if ((LEDsState == LEDS_OFF) && (statusLightStop == 0))
   {
     /* Turn OFF all LEDs */
     BSP_LED_Off(LED3);
@@ -461,22 +471,22 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
       /* Test on the command: Recording */
       if (CmdIndex == CMD_RECORD)
       {
-        RepeatState = REPEAT_ON;
+        //RepeatState = REPEAT_OFF;
         
         /* Switch to Play command */
-        CmdIndex = CMD_PLAY;
+        CmdIndex = CMD_STOP;
       }
       /* Test on the command: Playing */
-      else if (CmdIndex == CMD_PLAY)
+      else if (CmdIndex == CMD_STOP)
       {
         /* Switch to Record command */
         CmdIndex = CMD_RECORD;
       }
       else
       {
-        RepeatState = REPEAT_ON;
-        /* Default Command Index: Play command */
-        CmdIndex = CMD_PLAY; 
+        RepeatState = REPEAT_OFF;
+        /* Default Command Index: Stop command */
+        CmdIndex = CMD_STOP;
       }
       PbPressCheck = 1;
     }
@@ -485,22 +495,23 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
       PbPressCheck = 0;
     }
   }
+  // STRG+Shift+C for Block Comment
+//  if(GPIO_Pin == GPIO_PIN_1)
+//  {
+//    if (PressCount == 1)
+//    {
+//      /* Resume playing Wave status */
+//      PauseResumeStatus = RESUME_STATUS;
+//      PressCount = 0;
+//    }
+//    else
+//    {
+//      /* Pause playing Wave status */
+//      PauseResumeStatus = PAUSE_STATUS;
+//      PressCount = 1;
+//    }
+//  }
   
-  if(GPIO_Pin == GPIO_PIN_1) 
-  {
-    if (PressCount == 1)
-    {
-      /* Resume playing Wave status */
-      PauseResumeStatus = RESUME_STATUS;
-      PressCount = 0;
-    }
-    else
-    {
-      /* Pause playing Wave status */
-      PauseResumeStatus = PAUSE_STATUS;
-      PressCount = 1;
-    }
-  }
 } 
 
 #ifdef USE_FULL_ASSERT

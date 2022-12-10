@@ -34,6 +34,7 @@ typedef struct {
 __IO uint32_t WaveCounter = 0;
 
 extern __IO uint32_t CmdIndex, LEDsState, TimeRecBase;
+extern __IO uint8_t statusLightStop;
 
 /* USB variable to check if USB connected or not */
 extern MSC_ApplicationTypeDef AppliState;
@@ -126,9 +127,10 @@ void WaveRecorderProcess(void)
   {   
     while(1)
     {
-      /* Toggle LED5 in infinite loop to signal that: USB Flash Disk is not connected/removed
-         or an issue has occurred when creating/opening Wave file */
-      BSP_LED_Toggle(LED5); 
+      /* Toggle LED3 in infinite loop to signal that: USB Flash Disk is not connected/removed
+         or an issue has occurred when creating/opening Wave file, e.g. pushing the user button, while the
+         recording is in progress */
+      BSP_LED_Toggle(LED3);
     }
   }
   else
@@ -175,10 +177,10 @@ void WaveRecorderProcess(void)
       {
         /* Stop Audio Recording */
         WaveRecorderStop();
-        /* Switch Command Index to Play */
-        CmdIndex = CMD_PLAY;
-        /* Toggoling LED6 to signal Play */
-        LEDsState = LED6_TOGGLE;
+        /* Switch Command Index to STOP */
+        CmdIndex = CMD_STOP;
+        /* Toggoling LED4 to signal STOP */
+        LEDsState = LED4_TOGGLE;
         break;
       }
     }
@@ -206,8 +208,11 @@ void WaveRecorderProcess(void)
   f_close (&WavFile);
   f_mount(NULL, 0, 1);
   
-  /* Change Command Index to Play */
-  CmdIndex = CMD_PLAY;
+  /* Change Command Index to Stop */
+  CmdIndex = CMD_STOP;
+
+  /* Change Green Status Light to on*/
+  statusLightStop = 0;
 }
 
 /**
