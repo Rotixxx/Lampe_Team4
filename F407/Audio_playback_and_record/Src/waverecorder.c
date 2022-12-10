@@ -179,7 +179,7 @@ void WaveRecorderProcess(void)
         WaveRecorderStop();
         /* Switch Command Index to STOP */
         CmdIndex = CMD_STOP;
-        /* Toggoling LED4 to signal STOP */
+        /* Toggling LED4 to signal STOP */
         LEDsState = LED4_TOGGLE;
         break;
       }
@@ -291,9 +291,9 @@ static uint32_t WavProcess_EncInit(uint32_t Freq, uint8_t* pHeader)
 {  
   /* Initialize the encoder structure */
   WaveFormat.SampleRate = Freq;        /* Audio sampling frequency */
-  WaveFormat.NbrChannels = 2;          /* Number of channels: 1:Mono or 2:Stereo */
+  WaveFormat.NbrChannels = 1;          /* Number of channels: 1:Mono or 2:Stereo */
   WaveFormat.BitPerSample = 16;        /* Number of bits per sample (16, 24 or 32) */
-  WaveFormat.FileSize = 0x001D4C00;    /* Total length of useful audio data (payload) */
+  WaveFormat.FileSize = 0x000186A0;    /* Total length of useful audio data (payload) */
   WaveFormat.SubChunk1Size = 44;       /* The file header chunk size */
   WaveFormat.ByteRate = (WaveFormat.SampleRate * \
                         (WaveFormat.BitPerSample/8) * \
@@ -326,9 +326,9 @@ static uint32_t WavProcess_HeaderInit(uint8_t* pHeader, WAVE_FormatTypeDef* pWav
   /* Write the file length ----------------------------------------------------*/
   /* The sampling time: this value will be be written back at the end of the 
      recording operation.  Example: 661500 Bytes = 0x000A17FC, byte[7]=0x00, byte[4]=0xFC */
-  pHeader[4] = 0x00;
-  pHeader[5] = 0x4C;
-  pHeader[6] = 0x1D;
+  pHeader[4] = 0xA0;
+  pHeader[5] = 0x86;
+  pHeader[6] = 0x01;
   pHeader[7] = 0x00;
   
   /* Write the file format, must be 'WAVE' -----------------------------------*/
@@ -386,9 +386,9 @@ static uint32_t WavProcess_HeaderInit(uint8_t* pHeader, WAVE_FormatTypeDef* pWav
   
   /* Write the number of sample data -----------------------------------------*/
   /* This variable will be written back at the end of the recording operation */
-  pHeader[40]  = 0x00;
-  pHeader[41]  = 0x4C;
-  pHeader[42]  = 0x1D;
+  pHeader[40]  = 0xA0;
+  pHeader[41]  = 0x86;
+  pHeader[42]  = 0x01;
   pHeader[43]  = 0x00;
   
   /* Return 0 if all operations are OK */
