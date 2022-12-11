@@ -42,7 +42,7 @@
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
-uint8_t str[10] = {0};
+uint8_t str[12] = {0};
 
 /* USER CODE END PV */
 
@@ -50,6 +50,7 @@ uint8_t str[10] = {0};
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART1_UART_Init(void);
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -89,8 +90,7 @@ int main(void)
   MX_GPIO_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-
-  //HAL_UART_Receive_IT(&huart1, str, 8);
+  HAL_UART_Receive_IT(&huart1, str, sizeof(str));
 
   /* USER CODE END 2 */
 
@@ -98,7 +98,6 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  HAL_UART_Receive(&huart1, str, 8, 1000);
 	  HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_13);
 	  HAL_Delay(250);
     /* USER CODE END WHILE */
@@ -107,6 +106,12 @@ int main(void)
   }
   /* USER CODE END 3 */
 }
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+	HAL_UART_Receive_IT(&huart1, str, sizeof(str));
+}
+
 
 /**
   * @brief System Clock Configuration
