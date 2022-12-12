@@ -2,7 +2,7 @@
 /**
   ******************************************************************************
   * @file           : main.c
-  * @brief          : Main program body
+  * @brief          : Receive data with UART
   ******************************************************************************
   * @attention
   *
@@ -43,6 +43,7 @@ UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 uint8_t str[12] = {0};
+uint32_t RecCount = 0;
 
 /* USER CODE END PV */
 
@@ -106,12 +107,6 @@ int main(void)
   }
   /* USER CODE END 3 */
 }
-
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-	HAL_UART_Receive_IT(&huart1, str, sizeof(str));
-}
-
 
 /**
   * @brief System Clock Configuration
@@ -218,6 +213,14 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+	RecCount++;
+	HAL_UART_Receive_IT(&huart1, str, sizeof(str));
+}
+
 
 /* USER CODE END 4 */
 
