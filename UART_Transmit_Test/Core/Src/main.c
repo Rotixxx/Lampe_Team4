@@ -21,11 +21,13 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "string.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+
+#define BUFFER_SIZE 12
 
 /* USER CODE END PTD */
 
@@ -40,19 +42,28 @@
 
 /* Private variables ---------------------------------------------------------*/
 UART_HandleTypeDef huart5;
+DMA_HandleTypeDef hdma_uart5_tx;
 
 /* USER CODE BEGIN PV */
 
-uint8_t str[12] = "Tessa Sima\n";
+uint8_t str[BUFFER_SIZE] = "Tessa Sima ";
+uint8_t* pstr = NULL;
+uint8_t strbuf1[BUFFER_SIZE/2] = {0};
+uint8_t* pstrbuf1 = NULL;
+uint8_t strbuf2[BUFFER_SIZE/2] = {0};
+uint8_t* pstrbuf2 = NULL;
+
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_UART5_Init(void);
 /* USER CODE BEGIN PFP */
-
+void HAL_UART_TxHalfCpltCallback(UART_HandleTypeDef *huart);
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -67,7 +78,12 @@ static void MX_UART5_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+	/* assign pointer to string the adress of the string*/
+	pstr = str;
+	/* assign pointer to string buffer the adress of the string buffer*/
+	pstrbuf1 = strbuf1;
+	/* assign pointer to string buffer the adress of the string buffer*/
+	pstrbuf2 = strbuf2;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -88,6 +104,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_UART5_Init();
   /* USER CODE BEGIN 2 */
   //HAL_UART_Transmit_IT(&huart5, str, 12);
@@ -97,8 +114,6 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-		//HAL_UART_Transmit(&huart5,str,sizeof(str),1000);
-
 		HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12);
 		HAL_Delay(250);
     /* USER CODE END WHILE */
@@ -188,6 +203,22 @@ static void MX_UART5_Init(void)
 }
 
 /**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Stream7_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream7_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream7_IRQn);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -226,6 +257,36 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 /**
+  * @brief  Tx Half Transfer completed callbacks.
+  * @param  huart  Pointer to a UART_HandleTypeDef structure that contains
+  *                the configuration information for the specified UART module.
+  * @retval None
+  */
+void HAL_UART_TxHalfCpltCallback(UART_HandleTypeDef *huart)
+{
+	/* buffer first half of the string*/
+	memcpy((void*)(pstrbuf1),(const void*)(pstr),BUFFER_SIZE/2 );
+
+	/* buffer second half of the string*/
+	memcpy((void*)(pstrbuf2),(const void*)(pstr+BUFFER_SIZE/2),BUFFER_SIZE/2);
+
+	/* assign second half of the string to the first half of the string*/
+	memcpy((void*)(pstr),(const void*)pstrbuf2,BUFFER_SIZE/2);
+}
+
+/**
+  * @brief  Tx Transfer completed callbacks.
+  * @param  huart  Pointer to a UART_HandleTypeDef structure that contains
+  *                the configuration information for the specified UART module.
+  * @retval None
+  */
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+	/* assign buffer to second part of the string*/
+	memcpy((void*)(pstr+BUFFER_SIZE/2),(const void*)pstrbuf1,BUFFER_SIZE/2 );
+}
+
+/**
   * @brief  EXTI line detection callbacks.
   * @param  GPIO_Pin Specifies the pins connected EXTI line
   * @retval None
@@ -234,7 +295,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	if (GPIO_Pin == GPIO_PIN_0)
 	{
-		HAL_UART_Transmit_IT(&huart5, str, 12);
+		HAL_UART_Transmit_DMA(&huart5, str, 12);
 		HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_15);
 	}
 }
