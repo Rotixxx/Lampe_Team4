@@ -34,7 +34,11 @@ typedef struct {
 __IO uint32_t WaveCounter = 0;
 
 extern __IO uint32_t CmdIndex, LEDsState, TimeRecBase;
-extern __IO uint8_t statusLightStop;
+extern uint8_t RecBuffer;
+extern uint8_t* pRecBuffer;
+extern uint32_t pRecBufferOffset;
+
+uint32_t sizeofWrBuffer = 0;
 
 /* USB variable to check if USB connected or not */
 extern MSC_ApplicationTypeDef AppliState;
@@ -127,10 +131,9 @@ void WaveRecorderProcess(void)
   {   
     while(1)
     {
-      /* Toggle LED3 in infinite loop to signal that: USB Flash Disk is not connected/removed
-         or an issue has occurred when creating/opening Wave file, e.g. pushing the user button, while the
-         recording is in progress */
-      BSP_LED_Toggle(LED3);
+      /* Toggle LED5 in infinite loop to signal that: USB Flash Disk is not connected/removed
+         or an issue has occurred when creating/opening Wave file */
+      BSP_LED_Toggle(LED5);
     }
   }
   else
@@ -142,7 +145,7 @@ void WaveRecorderProcess(void)
   
   /* Write the header Wave */
   f_write(&WavFile, pHeaderBuff, 44, (void *)&byteswritten);
-  
+
   /* Increment the Wave counter */  
   BufferCtl.fptr = byteswritten;
   
@@ -163,12 +166,28 @@ void WaveRecorderProcess(void)
       /* Check if there are Data to write in Usb Key */
       if(AUDIODataReady == 1)
       {
+//    	  /* copy data in RecBuffer */
+//    	  if (AUDIOBuffOffset == 0)
+//    	  {
+////    		  memcpy((void*)(pRecBuffer+pRecBufferOffset),(const void*)((uint8_t*)WrBuffer),WR_BUFFER_SIZE);
+//    		  ;
+//    	  }
+//    	  else
+//    	  {
+////    		  memcpy((void*)(pRecBuffer+pRecBufferOffset),(const void*)((uint8_t*)WrBuffer+AUDIOBuffOffset),AUDIOBuffOffset);
+//    		  ;
+//    	  }
+
+    	memcpy((void*)(pRecBuffer+BufferCtl.fptr),(const void*)((uint8_t*)WrBuffer+AUDIOBuffOffset),WR_BUFFER_SIZE);
+
         /* write buffer in file */
         if(f_write(&WavFile, (uint8_t*)(WrBuffer+AUDIOBuffOffset), WR_BUFFER_SIZE, (void*)&byteswritten) != FR_OK)
         {
           Error_Handler();
         }
         BufferCtl.fptr += byteswritten;
+        /* update buffer offset */
+       // pRecBufferOffset = BufferCtl.fptr;
         AUDIODataReady = 0;
       }
       
@@ -177,10 +196,10 @@ void WaveRecorderProcess(void)
       {
         /* Stop Audio Recording */
         WaveRecorderStop();
-        /* Switch Command Index to STOP */
-        CmdIndex = CMD_STOP;
-        /* Toggling LED4 to signal STOP */
-        LEDsState = LED4_TOGGLE;
+        /* Switch Command Index to Play */
+        CmdIndex = CMD_PLAY;
+        /* Toggoling LED6 to signal Play */
+        LEDsState = LED6_TOGGLE;
         break;
       }
     }
@@ -204,15 +223,15 @@ void WaveRecorderProcess(void)
   WavProcess_HeaderUpdate(pHeaderBuff, &WaveFormat);
   f_write(&WavFile, pHeaderBuff, 44, (void*)&byteswritten);
   
+  /* Write the header in the RecBuffer*/
+  memcpy((void*)(pRecBuffer),(const void*)pHeaderBuff,44);
+
   /* Close file and unmount MyFilesystem */
   f_close (&WavFile);
   f_mount(NULL, 0, 1);
   
-  /* Change Command Index to Stop */
-  CmdIndex = CMD_STOP;
-
-  /* Change Green Status Light to on*/
-  statusLightStop = 0;
+  /* Change Command Index to Play */
+  CmdIndex = CMD_PLAY;
 }
 
 /**
@@ -224,17 +243,18 @@ void BSP_AUDIO_IN_TransferComplete_CallBack(void)
 {
   /* PDM to PCM data convert */
   BSP_AUDIO_IN_PDMToPCM((uint16_t*)&InternalBuffer[INTERNAL_BUFF_SIZE/2], (uint16_t*)&RecBuf[0]);
-  
+
   /* Copy PCM data in internal buffer */
   memcpy((uint16_t*)&WrBuffer[ITCounter * (PCM_OUT_SIZE*2)], RecBuf, PCM_OUT_SIZE*4);
   
   BufferCtl.offset = BUFFER_OFFSET_NONE;
   
-  if(ITCounter == (WR_BUFFER_SIZE/(PCM_OUT_SIZE*4))-1)
+  if(ITCounter == (WR_BUFFER_SIZE/(PCM_OUT_SIZE*4))-1)	// When WrBuffer Half full
   {
     AUDIODataReady = 1;
     AUDIOBuffOffset = 0;
     ITCounter++;
+
   }
   else if(ITCounter == (WR_BUFFER_SIZE/(PCM_OUT_SIZE*2))-1)
   {
@@ -254,15 +274,15 @@ void BSP_AUDIO_IN_TransferComplete_CallBack(void)
   * @retval None
   */
 void BSP_AUDIO_IN_HalfTransfer_CallBack(void)
-{ 
+{
   /* PDM to PCM data convert */
   BSP_AUDIO_IN_PDMToPCM((uint16_t*)&InternalBuffer[0], (uint16_t*)&RecBuf[0]);
-  
+
   /* Copy PCM data in internal buffer */
   memcpy((uint16_t*)&WrBuffer[ITCounter * (PCM_OUT_SIZE*2)], RecBuf, PCM_OUT_SIZE*4);
-  
+
   BufferCtl.offset = BUFFER_OFFSET_NONE;
-  
+
   if(ITCounter == (WR_BUFFER_SIZE/(PCM_OUT_SIZE*4))-1)
   {
     AUDIODataReady = 1;
@@ -291,9 +311,9 @@ static uint32_t WavProcess_EncInit(uint32_t Freq, uint8_t* pHeader)
 {  
   /* Initialize the encoder structure */
   WaveFormat.SampleRate = Freq;        /* Audio sampling frequency */
-  WaveFormat.NbrChannels = 1;          /* Number of channels: 1:Mono or 2:Stereo */
+  WaveFormat.NbrChannels = 2;          /* Number of channels: 1:Mono or 2:Stereo */
   WaveFormat.BitPerSample = 16;        /* Number of bits per sample (16, 24 or 32) */
-  WaveFormat.FileSize = 0x000186A0;    /* Total length of useful audio data (payload) */
+  WaveFormat.FileSize = 0x001D4C00;    /* Total length of useful audio data (payload) */
   WaveFormat.SubChunk1Size = 44;       /* The file header chunk size */
   WaveFormat.ByteRate = (WaveFormat.SampleRate * \
                         (WaveFormat.BitPerSample/8) * \
@@ -326,9 +346,9 @@ static uint32_t WavProcess_HeaderInit(uint8_t* pHeader, WAVE_FormatTypeDef* pWav
   /* Write the file length ----------------------------------------------------*/
   /* The sampling time: this value will be be written back at the end of the 
      recording operation.  Example: 661500 Bytes = 0x000A17FC, byte[7]=0x00, byte[4]=0xFC */
-  pHeader[4] = 0xA0;
-  pHeader[5] = 0x86;
-  pHeader[6] = 0x01;
+  pHeader[4] = 0x00;
+  pHeader[5] = 0x4C;
+  pHeader[6] = 0x1D;
   pHeader[7] = 0x00;
   
   /* Write the file format, must be 'WAVE' -----------------------------------*/
@@ -386,9 +406,9 @@ static uint32_t WavProcess_HeaderInit(uint8_t* pHeader, WAVE_FormatTypeDef* pWav
   
   /* Write the number of sample data -----------------------------------------*/
   /* This variable will be written back at the end of the recording operation */
-  pHeader[40]  = 0xA0;
-  pHeader[41]  = 0x86;
-  pHeader[42]  = 0x01;
+  pHeader[40]  = 0x00;
+  pHeader[41]  = 0x4C;
+  pHeader[42]  = 0x1D;
   pHeader[43]  = 0x00;
   
   /* Return 0 if all operations are OK */

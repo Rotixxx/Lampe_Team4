@@ -24,6 +24,20 @@
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef hTimLed;
 TIM_OC_InitTypeDef sConfigLed;
+uint8_t RecBuffer[65000] = {0};
+uint8_t* pRecBuffer = RecBuffer;
+uint32_t pRecBufferOffset = 0;	// set buffer offset to 0 -> Header
+
+struct tc_aes_key_sched_struct s_client;
+struct tc_aes_key_sched_struct s_server;
+
+// Set the AES Key and output it
+const char *key = "That's my Kung Fu";
+const char mes[4096] = {1,0};
+const char *message = mes;
+
+// creat array for encrypted msg
+uint8_t cipher[TC_AES_BLOCK_SIZE + 1] ;
 
 /* Counter for User button presses. Defined as external in waveplayer.c file */
 __IO uint32_t PressCount = 0;
@@ -46,9 +60,8 @@ extern __IO uint32_t LEDsState;
 /* Save MEMS ID */
 uint8_t MemsID = 0; 
 
-__IO uint32_t CmdIndex = CMD_STOP;
+__IO uint32_t CmdIndex = CMD_PLAY;
 __IO uint32_t PbPressCheck = 0;
-__IO uint8_t statusLightStop = 0;
 
 FATFS USBDISKFatFs;          /* File system object for USB disk logical drive */
 char USBDISKPath[4];         /* USB Host logical drive path */
@@ -81,7 +94,7 @@ int main(void)
   */
   HAL_Init();
   
-  /* Configure LED3 -> ORANGE, LED4 -> GREEN, LED5 -> RED and LED6 -> BLUE*/
+  /* Configure LED3, LED4, LED5 and LED6 */
   BSP_LED_Init(LED3);
   BSP_LED_Init(LED4);
   BSP_LED_Init(LED5);
@@ -100,7 +113,7 @@ int main(void)
   MemsID = BSP_ACCELERO_ReadID();
   
   /* Turn ON LED4: start of application */
-  //BSP_LED_On(LED4);
+  BSP_LED_On(LED4);
   
   /* Configure TIM4 Peripheral to manage LEDs lighting */
   TIM_LED_Config();
@@ -126,6 +139,25 @@ int main(void)
     /*##-4- Start Host Process ###############################################*/
     USBH_Start(&hUSB_Host);
     
+    // cipher memory to 0
+    memset(cipher, 0, TC_AES_BLOCK_SIZE + 1);
+
+	//set encryption Key
+	tc_aes128_set_encrypt_key(&s_client, (const uint8_t *)key);
+
+	// encrypt msg (counter) and out put it
+	tc_aes_encrypt(cipher, (const uint8_t *)message, &s_client);
+
+	// create array with length of payload and overwrite it with 0s
+	uint8_t result[TC_AES_BLOCK_SIZE + 1] ;
+	memset(result, 0, TC_AES_BLOCK_SIZE + 1);
+
+	// set the decryption key
+	tc_aes128_set_decrypt_key(&s_server, (const uint8_t *)key);
+
+	//decrypt msg and output it
+	tc_aes_decrypt(result, cipher, &s_server);
+
     /* Run Application (Blocking mode)*/
     while (1)
     {
@@ -233,19 +265,10 @@ static void COMMAND_AudioExecuteApplication(void)
     
     /* Start Recording in USB Flash memory */ 
   case CMD_RECORD:
-    // RepeatState = REPEAT_ON;
+    RepeatState = REPEAT_ON;
     WaveRecorderProcess();
     break;
     
-    /* Wait for next Recording in USB Flash memory */
-  case CMD_STOP:
-	  // GREEN LED on
-	  if (0 == statusLightStop)
-	  {
-		  LEDsState = LED4_TOGGLE;
-		  statusLightStop = 1;
-	  }
-	break;
   default:
     break;
   }
@@ -441,7 +464,7 @@ void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
     /* Turn ON LED6 */
     BSP_LED_On(LED6);
   }
-  else if ((LEDsState == LEDS_OFF) && (statusLightStop == 0))
+  else if (LEDsState == LEDS_OFF)
   {
     /* Turn OFF all LEDs */
     BSP_LED_Off(LED3);
@@ -471,22 +494,22 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
       /* Test on the command: Recording */
       if (CmdIndex == CMD_RECORD)
       {
-        //RepeatState = REPEAT_OFF;
+        RepeatState = REPEAT_ON;
         
         /* Switch to Play command */
-        CmdIndex = CMD_STOP;
+        CmdIndex = CMD_PLAY;
       }
       /* Test on the command: Playing */
-      else if (CmdIndex == CMD_STOP)
+      else if (CmdIndex == CMD_PLAY)
       {
         /* Switch to Record command */
         CmdIndex = CMD_RECORD;
       }
       else
       {
-        RepeatState = REPEAT_OFF;
-        /* Default Command Index: Stop command */
-        CmdIndex = CMD_STOP;
+        RepeatState = REPEAT_ON;
+        /* Default Command Index: Play command */
+        CmdIndex = CMD_PLAY;
       }
       PbPressCheck = 1;
     }
@@ -495,23 +518,22 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
       PbPressCheck = 0;
     }
   }
-  // STRG+Shift+C for Block Comment
-//  if(GPIO_Pin == GPIO_PIN_1)
-//  {
-//    if (PressCount == 1)
-//    {
-//      /* Resume playing Wave status */
-//      PauseResumeStatus = RESUME_STATUS;
-//      PressCount = 0;
-//    }
-//    else
-//    {
-//      /* Pause playing Wave status */
-//      PauseResumeStatus = PAUSE_STATUS;
-//      PressCount = 1;
-//    }
-//  }
   
+  if(GPIO_Pin == GPIO_PIN_1)
+  {
+    if (PressCount == 1)
+    {
+      /* Resume playing Wave status */
+      PauseResumeStatus = RESUME_STATUS;
+      PressCount = 0;
+    }
+    else
+    {
+      /* Pause playing Wave status */
+      PauseResumeStatus = PAUSE_STATUS;
+      PressCount = 1;
+    }
+  }
 } 
 
 #ifdef USE_FULL_ASSERT
@@ -537,4 +559,4 @@ void assert_failed(uint8_t* file, uint32_t line)
 
 /**
   * @}
-  */ 
+  */

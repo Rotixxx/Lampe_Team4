@@ -31,7 +31,7 @@
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
 
-/* LED State (Toggle, OFF or GREEN LED ON)*/
+/* LED State (Toggle or OFF)*/
 __IO uint32_t LEDsState;
 
 extern __IO uint32_t RepeatState, PauseResumeStatus, PressCount;
