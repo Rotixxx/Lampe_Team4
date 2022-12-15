@@ -38,8 +38,6 @@ extern uint8_t RecBuffer;
 extern uint8_t* pRecBuffer;
 extern uint32_t pRecBufferOffset;
 
-uint32_t sizeofWrBuffer = 0;
-
 /* USB variable to check if USB connected or not */
 extern MSC_ApplicationTypeDef AppliState;
 
@@ -166,17 +164,6 @@ void WaveRecorderProcess(void)
       /* Check if there are Data to write in Usb Key */
       if(AUDIODataReady == 1)
       {
-//    	  /* copy data in RecBuffer */
-//    	  if (AUDIOBuffOffset == 0)
-//    	  {
-////    		  memcpy((void*)(pRecBuffer+pRecBufferOffset),(const void*)((uint8_t*)WrBuffer),WR_BUFFER_SIZE);
-//    		  ;
-//    	  }
-//    	  else
-//    	  {
-////    		  memcpy((void*)(pRecBuffer+pRecBufferOffset),(const void*)((uint8_t*)WrBuffer+AUDIOBuffOffset),AUDIOBuffOffset);
-//    		  ;
-//    	  }
 
     	memcpy((void*)(pRecBuffer+BufferCtl.fptr),(const void*)((uint8_t*)WrBuffer+AUDIOBuffOffset),WR_BUFFER_SIZE);
 
