@@ -5,10 +5,13 @@ import os.path
 from os import path 
 from time import sleep 
 import sys 
+from gpiozero import LED
+from time import sleep
 
 filePath=sys.argv[1]
 # POST wav file
-url = "http://192.168.8.106:12101/api/speech-to-intent"
+# url = "http://192.168.8.106:12101/api/speech-to-intent"
+url = "http://192.168.43.40:12101/api/speech-to-intent"
 # filePath = '/home/pi/Desktop/rec.wav'
 
 headers = {
@@ -48,6 +51,17 @@ while (True):
 		
 		with open('/home/pi/Desktop/finalCommand.txt', 'w') as file:
 	  		file.write(on_off)
+	  	
+	  	# Initialisierung von GPIO17 als LED (Ausgang) und on/off des LEDs
+		led = LED(17)
+	  	
+		if str(on_off)=="on":
+			led.on()
+			print("The LED is turned on")
+		if str(on_off)=="off":
+			led.off()
+			print("The LED is turned off")
+	  		
 	except:
 		with open('/home/pi/Desktop/finalCommand.txt', 'w') as file:
 	  		file.write("unknown error")
