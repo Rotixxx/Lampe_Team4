@@ -30,8 +30,9 @@
 /* Exported constants --------------------------------------------------------*/
 /* Defines for the Audio recording process */
 #define WR_BUFFER_SIZE           1024  /*  More the size is higher, the recorded quality is better */
-#define DEFAULT_TIME_REC         500  /* Recording time in millisecond (Systick Time Base*TIME_REC= 1ms*750)
+#define DEFAULT_TIME_REC         1000  /* Recording time in millisecond (Systick Time Base*TIME_REC= 1ms*750)
                                         (default: 0.75s) */
+#define SIZE_OF_RECORD_BUFFER    65000 /* Size of internal buffer, where the recording is saved in bytes*/
 
 /* Exported macro ------------------------------------------------------------*/
 /* Exported functions ------------------------------------------------------- */

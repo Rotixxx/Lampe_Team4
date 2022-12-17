@@ -29,6 +29,7 @@
 #include "stm32f4xx_it.h"
 #include "waveplayer.h"
 #include <tinycrypt/aes.h>
+#include "string.h"
 
 #include "waverecorder.h"
 #include "ff.h"

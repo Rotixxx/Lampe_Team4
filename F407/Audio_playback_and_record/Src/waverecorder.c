@@ -117,6 +117,7 @@ void WaveRecorderProcess(void)
 {     
   /* Current size of the recorded buffer */
   uint32_t byteswritten = 0; 
+  memset((void*)pRecBuffer,0,SIZE_OF_RECORD_BUFFER);	// set recorder buffer to 0 for new recording
   
   WaveCounter = 0;
   LEDsState = LEDS_OFF;
@@ -194,10 +195,10 @@ void WaveRecorderProcess(void)
     {
       /* Stop Audio Recording */
       WaveRecorderStop();
-      /* Change Command Index to Stop */
+      /* Change Command Index to IDLE */
       CmdIndex = CMD_STOP;
-      /* Toggoling LED4 to signal Stop */
-      LEDsState = LED4_TOGGLE;
+      /* Turning off LEDs */
+      LEDsState = LEDS_OFF;
       AUDIODataReady = 0;
       break;
     }
@@ -218,7 +219,7 @@ void WaveRecorderProcess(void)
   f_mount(NULL, 0, 1);
   
   /* Change Command Index to Play */
-  CmdIndex = CMD_PLAY;
+  CmdIndex = CMD_STOP;
 }
 
 /**

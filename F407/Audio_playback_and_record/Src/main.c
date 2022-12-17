@@ -24,7 +24,7 @@
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef hTimLed;
 TIM_OC_InitTypeDef sConfigLed;
-uint8_t RecBuffer[65000] = {0};
+uint8_t RecBuffer[SIZE_OF_RECORD_BUFFER] = {0};
 uint8_t* pRecBuffer = RecBuffer;
 uint32_t pRecBufferOffset = 0;	// set buffer offset to 0 -> Header
 
@@ -60,7 +60,7 @@ extern __IO uint32_t LEDsState;
 /* Save MEMS ID */
 uint8_t MemsID = 0; 
 
-__IO uint32_t CmdIndex = CMD_PLAY;
+__IO uint32_t CmdIndex = CMD_STOP;
 __IO uint32_t PbPressCheck = 0;
 
 FATFS USBDISKFatFs;          /* File system object for USB disk logical drive */
@@ -164,6 +164,7 @@ int main(void)
       switch(AppliState)
       {
       case APPLICATION_START:
+    	//COMMAND_AudioExecuteApplication();
         MSC_Application();
         break;      
       case APPLICATION_IDLE:
@@ -268,7 +269,15 @@ static void COMMAND_AudioExecuteApplication(void)
     RepeatState = REPEAT_ON;
     WaveRecorderProcess();
     break;
-    
+
+   /* Go into idle state, if not recording*/
+  case CMD_STOP:
+	if (LEDsState != LED4_TOGGLE)		// when first coming intp this routine
+	{
+		LEDsState = LED4_TOGGLE;
+	}
+	break;
+
   default:
     break;
   }
@@ -494,44 +503,28 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
       /* Test on the command: Recording */
       if (CmdIndex == CMD_RECORD)
       {
-        RepeatState = REPEAT_ON;
+        //RepeatState = REPEAT_ON;
         
         /* Switch to Play command */
-        CmdIndex = CMD_PLAY;
+        CmdIndex = CMD_STOP;
       }
       /* Test on the command: Playing */
-      else if (CmdIndex == CMD_PLAY)
+      else if (CmdIndex == CMD_STOP)
       {
         /* Switch to Record command */
         CmdIndex = CMD_RECORD;
       }
       else
       {
-        RepeatState = REPEAT_ON;
+        //RepeatState = REPEAT_ON;
         /* Default Command Index: Play command */
-        CmdIndex = CMD_PLAY;
+        CmdIndex = CMD_STOP;
       }
       PbPressCheck = 1;
     }
     else
     {
       PbPressCheck = 0;
-    }
-  }
-  
-  if(GPIO_Pin == GPIO_PIN_1)
-  {
-    if (PressCount == 1)
-    {
-      /* Resume playing Wave status */
-      PauseResumeStatus = RESUME_STATUS;
-      PressCount = 0;
-    }
-    else
-    {
-      /* Pause playing Wave status */
-      PauseResumeStatus = PAUSE_STATUS;
-      PressCount = 1;
     }
   }
 } 
