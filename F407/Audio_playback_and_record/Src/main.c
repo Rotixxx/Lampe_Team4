@@ -21,6 +21,8 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
+//
+//#define HAL_UART_MODULE_ENABLED
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef hTimLed;
 TIM_OC_InitTypeDef sConfigLed;
@@ -28,8 +30,14 @@ uint8_t RecBuffer[SIZE_OF_RECORD_BUFFER] = {0};
 uint8_t* pRecBuffer = RecBuffer;
 uint32_t pRecBufferOffset = 0;	// set buffer offset to 0 -> Header
 
+uint8_t str[] = "Hase!";
+uint8_t* pstr = str;
+
 struct tc_aes_key_sched_struct s_client;
 struct tc_aes_key_sched_struct s_server;
+
+UART_HandleTypeDef huart5;
+static void MX_UART5_Init(void);
 
 // Set the AES Key and output it
 const char *key = "That's my Kung Fu";
@@ -93,7 +101,7 @@ int main(void)
      - Global MSP (MCU Support Package) initialization
   */
   HAL_Init();
-  
+  MX_UART5_Init();
   /* Configure LED3, LED4, LED5 and LED6 */
   BSP_LED_Init(LED3);
   BSP_LED_Init(LED4);
@@ -165,6 +173,7 @@ int main(void)
       {
       case APPLICATION_START:
     	//COMMAND_AudioExecuteApplication();
+        HAL_UART_Transmit(&huart5, pstr, sizeof(str), 50);
         MSC_Application();
         break;      
       case APPLICATION_IDLE:
@@ -529,6 +538,38 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   }
 } 
 
+/**
+  * @brief UART5 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_UART5_Init(void)
+{
+
+  /* USER CODE BEGIN UART5_Init 0 */
+
+  /* USER CODE END UART5_Init 0 */
+
+  /* USER CODE BEGIN UART5_Init 1 */
+
+  /* USER CODE END UART5_Init 1 */
+  huart5.Instance = UART5;
+  huart5.Init.BaudRate = 115200;
+  huart5.Init.WordLength = UART_WORDLENGTH_8B;
+  huart5.Init.StopBits = UART_STOPBITS_1;
+  huart5.Init.Parity = UART_PARITY_NONE;
+  huart5.Init.Mode = UART_MODE_TX_RX;
+  huart5.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart5.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN UART5_Init 2 */
+
+  /* USER CODE END UART5_Init 2 */
+
+}
 #ifdef USE_FULL_ASSERT
 
 /**

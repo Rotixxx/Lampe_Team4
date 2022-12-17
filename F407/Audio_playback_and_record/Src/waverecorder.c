@@ -37,6 +37,7 @@ extern __IO uint32_t CmdIndex, LEDsState, TimeRecBase;
 extern uint8_t RecBuffer;
 extern uint8_t* pRecBuffer;
 extern uint32_t pRecBufferOffset;
+extern UART_HandleTypeDef huart5;
 
 /* USB variable to check if USB connected or not */
 extern MSC_ApplicationTypeDef AppliState;
@@ -185,9 +186,9 @@ void WaveRecorderProcess(void)
         /* Stop Audio Recording */
         WaveRecorderStop();
         /* Switch Command Index to Play */
-        CmdIndex = CMD_PLAY;
+        CmdIndex = CMD_STOP;
         /* Toggoling LED6 to signal Play */
-        LEDsState = LED6_TOGGLE;
+        LEDsState = LEDS_OFF;
         break;
       }
     }
@@ -200,6 +201,7 @@ void WaveRecorderProcess(void)
       /* Turning off LEDs */
       LEDsState = LEDS_OFF;
       AUDIODataReady = 0;
+      //HAL_UART_Transmit(&huart5, pRecBuffer, SIZE_OF_RECORD_BUFFER, 1500);
       break;
     }
   }
