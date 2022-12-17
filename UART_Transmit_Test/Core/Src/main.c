@@ -27,7 +27,7 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
-#define BUFFER_SIZE 12
+#define BUFFER_SIZE 64000	// approx. size of 1s of recording
 
 /* USER CODE END PTD */
 
@@ -46,12 +46,12 @@ DMA_HandleTypeDef hdma_uart5_tx;
 
 /* USER CODE BEGIN PV */
 
-uint8_t str[BUFFER_SIZE] = "Tessa Sima ";
+uint8_t str[BUFFER_SIZE];
 uint8_t* pstr = NULL;
-uint8_t strbuf1[BUFFER_SIZE/2] = {0};
-uint8_t* pstrbuf1 = NULL;
-uint8_t strbuf2[BUFFER_SIZE/2] = {0};
-uint8_t* pstrbuf2 = NULL;
+//uint8_t strbuf1[BUFFER_SIZE/2];
+//uint8_t* pstrbuf1 = NULL;
+//uint8_t strbuf2[BUFFER_SIZE/2];
+//uint8_t* pstrbuf2 = NULL;
 
 
 /* USER CODE END PV */
@@ -80,13 +80,27 @@ int main(void)
   /* USER CODE BEGIN 1 */
 	/* assign pointer to string the adress of the string*/
 	pstr = str;
-	/* assign pointer to string buffer the adress of the string buffer*/
-	pstrbuf1 = strbuf1;
-	/* assign pointer to string buffer the adress of the string buffer*/
-	pstrbuf2 = strbuf2;
+
+//	/* assign pointer to string buffer the adress of the string buffer*/
+//	pstrbuf1 = strbuf1;
+//	/* write data "1" in first half of buffer*/
+//	memset((void*)pstrbuf1,0,BUFFER_SIZE/2);
+//
+//	/* assign pointer to string buffer the adress of the string buffer*/
+//	pstrbuf2 = strbuf2;
+//	/* write data "1" in first half of buffer*/
+//	memset((void*)pstrbuf2,0,BUFFER_SIZE/2);
+
+	/* write data "1" in first half of buffer*/
+	memset((void*)pstr,72,BUFFER_SIZE/2);
+	/* write data "2" in second half of buffer*/
+	memset((void*)(pstr+BUFFER_SIZE/2),73,BUFFER_SIZE/2);
+
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
+
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
@@ -116,6 +130,7 @@ int main(void)
   {
 		HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12);
 		HAL_Delay(250);
+		//HAL_UART_Transmit(&huart5, str, sizeof(str), 1000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -265,13 +280,13 @@ static void MX_GPIO_Init(void)
 void HAL_UART_TxHalfCpltCallback(UART_HandleTypeDef *huart)
 {
 	/* buffer first half of the string*/
-	memcpy((void*)(pstrbuf1),(const void*)(pstr),BUFFER_SIZE/2 );
+	//memcpy((void*)(pstrbuf1),(const void*)(pstr),BUFFER_SIZE/2 );
 
 	/* buffer second half of the string*/
-	memcpy((void*)(pstrbuf2),(const void*)(pstr+BUFFER_SIZE/2),BUFFER_SIZE/2);
+	//memcpy((void*)(pstrbuf2),(const void*)(pstr+BUFFER_SIZE/2),BUFFER_SIZE/2);
 
 	/* assign second half of the string to the first half of the string*/
-	memcpy((void*)(pstr),(const void*)pstrbuf2,BUFFER_SIZE/2);
+	//memcpy((void*)(pstr),(const void*)pstrbuf2,BUFFER_SIZE/2);
 }
 
 /**
@@ -283,7 +298,7 @@ void HAL_UART_TxHalfCpltCallback(UART_HandleTypeDef *huart)
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
 	/* assign buffer to second part of the string*/
-	memcpy((void*)(pstr+BUFFER_SIZE/2),(const void*)pstrbuf1,BUFFER_SIZE/2 );
+	//memcpy((void*)(pstr+BUFFER_SIZE/2),(const void*)pstrbuf1,BUFFER_SIZE/2 );
 }
 
 /**
@@ -295,7 +310,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	if (GPIO_Pin == GPIO_PIN_0)
 	{
-		HAL_UART_Transmit_DMA(&huart5, str, 12);
+		HAL_UART_Transmit_DMA(&huart5, str, BUFFER_SIZE);
+		//HAL_UART_Transmit(&huart5, str, sizeof(str), 250);
 		HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_15);
 	}
 }
