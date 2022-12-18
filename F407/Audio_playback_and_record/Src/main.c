@@ -39,6 +39,9 @@ struct tc_aes_key_sched_struct s_server;
 UART_HandleTypeDef huart5;
 static void MX_UART5_Init(void);
 
+// test counter for UART -> is used in hal_uart.c
+uint32_t count = 0;
+
 // Set the AES Key and output it
 const char *key = "That's my Kung Fu";
 const char mes[4096] = {1,0};
@@ -75,7 +78,7 @@ FATFS USBDISKFatFs;          /* File system object for USB disk logical drive */
 char USBDISKPath[4];         /* USB Host logical drive path */
 USBH_HandleTypeDef hUSB_Host; /* USB Host handle */
 
-MSC_ApplicationTypeDef AppliState = APPLICATION_IDLE;
+MSC_ApplicationTypeDef AppliState = APPLICATION_START;
 static uint8_t  USBH_USR_ApplicationState = USBH_USR_FS_INIT;
 
 /* Private function prototypes -----------------------------------------------*/
@@ -101,7 +104,7 @@ int main(void)
      - Global MSP (MCU Support Package) initialization
   */
   HAL_Init();
-  MX_UART5_Init();
+
   /* Configure LED3, LED4, LED5 and LED6 */
   BSP_LED_Init(LED3);
   BSP_LED_Init(LED4);
@@ -126,6 +129,8 @@ int main(void)
   /* Configure TIM4 Peripheral to manage LEDs lighting */
   TIM_LED_Config();
   
+  MX_UART5_Init();
+
   /* Initialize the Repeat state */
   RepeatState = REPEAT_ON;
   
@@ -135,18 +140,18 @@ int main(void)
   /* Configure USER Button */
   BSP_PB_Init(BUTTON_KEY, BUTTON_MODE_EXTI);
   
-  /*##-1- Link the USB Host disk I/O driver ##################################*/
-  if(FATFS_LinkDriver(&USBH_Driver, USBDISKPath) == 0)
-  { 
-    /*##-2- Init Host Library ################################################*/
-    USBH_Init(&hUSB_Host, USBH_UserProcess, 0);
-    
-    /*##-3- Add Supported Class ##############################################*/
-    USBH_RegisterClass(&hUSB_Host, USBH_MSC_CLASS);
-    
-    /*##-4- Start Host Process ###############################################*/
-    USBH_Start(&hUSB_Host);
-    
+//  /*##-1- Link the USB Host disk I/O driver ##################################*/
+//  if(FATFS_LinkDriver(&USBH_Driver, USBDISKPath) == 0)
+//  {
+//    /*##-2- Init Host Library ################################################*/
+//    USBH_Init(&hUSB_Host, USBH_UserProcess, 0);
+//
+//    /*##-3- Add Supported Class ##############################################*/
+//    USBH_RegisterClass(&hUSB_Host, USBH_MSC_CLASS);
+//
+//    /*##-4- Start Host Process ###############################################*/
+//    USBH_Start(&hUSB_Host);
+//
     // cipher memory to 0
     memset(cipher, 0, TC_AES_BLOCK_SIZE + 1);
 
@@ -169,27 +174,28 @@ int main(void)
     /* Run Application (Blocking mode)*/
     while (1)
     {
-      switch(AppliState)
-      {
-      case APPLICATION_START:
+    	HAL_Delay(50);
+//      switch(AppliState)
+//      {
+//      case APPLICATION_START:
     	//COMMAND_AudioExecuteApplication();
-        HAL_UART_Transmit(&huart5, pstr, sizeof(str), 50);
-        MSC_Application();
-        break;      
-      case APPLICATION_IDLE:
-      default:
-        break;      
-      }
+        //MSC_Application();
+        COMMAND_AudioExecuteApplication();
+//        break;
+//      case APPLICATION_IDLE:
+//      default:
+//        break;
+//      }
       
-      /* USBH_Background Process */
-      USBH_Process(&hUSB_Host);
+//      /* USBH_Background Process */
+//      USBH_Process(&hUSB_Host);
     }
-  }
+//  }
   
-  /* TrueStudio compilation error correction */
-  while (1)
-  {
-  }
+//  /* TrueStudio compilation error correction */
+//  while (1)
+//  {
+//  }
 }
 
 /**
@@ -257,6 +263,40 @@ static void MSC_Application(void)
   }
 }
 
+
+/**
+  * @brief UART5 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_UART5_Init(void)
+{
+
+  /* USER CODE BEGIN UART5_Init 0 */
+
+  /* USER CODE END UART5_Init 0 */
+
+  /* USER CODE BEGIN UART5_Init 1 */
+
+  /* USER CODE END UART5_Init 1 */
+  huart5.Instance = UART5;
+  huart5.Init.BaudRate = 115200;
+  huart5.Init.WordLength = UART_WORDLENGTH_8B;
+  huart5.Init.StopBits = UART_STOPBITS_1;
+  huart5.Init.Parity = UART_PARITY_NONE;
+  huart5.Init.Mode = UART_MODE_TX_RX;
+  huart5.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart5.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN UART5_Init 2 */
+
+  /* USER CODE END UART5_Init 2 */
+
+}
+
 /**
   * @brief  COMMAND_AudioExecuteApplication.
   * @param  None
@@ -267,15 +307,15 @@ static void COMMAND_AudioExecuteApplication(void)
   /* Execute the command switch the command index */
   switch (CmdIndex)
   {
-    /* Start Playing from USB Flash memory */
-  case CMD_PLAY:
-    if (RepeatState == REPEAT_ON)
-      WavePlayerStart();
-    break;
+//    /* Start Playing from USB Flash memory */
+//  case CMD_PLAY:
+//    if (RepeatState == REPEAT_ON)
+//      WavePlayerStart();
+//    break;
     
     /* Start Recording in USB Flash memory */ 
   case CMD_RECORD:
-    RepeatState = REPEAT_ON;
+//    RepeatState = REPEAT_ON;
     WaveRecorderProcess();
     break;
 
@@ -314,8 +354,8 @@ static void COMMAND_AudioExecuteApplication(void)
   */
 static void SystemClock_Config(void)
 {
-  RCC_ClkInitTypeDef RCC_ClkInitStruct;
-  RCC_OscInitTypeDef RCC_OscInitStruct;
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
 
   /* Enable Power Control clock */
   __HAL_RCC_PWR_CLK_ENABLE();
@@ -325,38 +365,43 @@ static void SystemClock_Config(void)
      regarding system frequency refer to product datasheet.  */
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
   
-  /* Enable HSE Oscillator and activate PLL with HSE as source */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
   RCC_OscInitStruct.PLL.PLLM = 8;
-  RCC_OscInitStruct.PLL.PLLN = 336;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLN = 50;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV4;
   RCC_OscInitStruct.PLL.PLLQ = 7;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
   }
 
-  /* Select PLL as system clock source and configure the HCLK, PCLK1 and PCLK2 
-     clocks dividers */
-  RCC_ClkInitStruct.ClockType = (RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2);
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;  
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;  
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
   {
     Error_Handler();
   }
 
-  /* STM32F405x/407x/415x/417x Revision Z devices: prefetch is supported  */
-  if (HAL_GetREVID() == 0x1001)
-  {
-    /* Enable the Flash prefetch */
-    __HAL_FLASH_PREFETCH_BUFFER_ENABLE();
-  }  
+//  /* STM32F405x/407x/415x/417x Revision Z devices: prefetch is supported  */
+//  if (HAL_GetREVID() == 0x1001)
+//  {
+//    /* Enable the Flash prefetch */
+//    __HAL_FLASH_PREFETCH_BUFFER_ENABLE();
+//  }
 }
 
 /**
@@ -508,7 +553,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   {
     if (PbPressCheck == 0)
     {
-      HAL_Delay(10);
+//      HAL_Delay(10);
       /* Test on the command: Recording */
       if (CmdIndex == CMD_RECORD)
       {
@@ -538,38 +583,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   }
 } 
 
-/**
-  * @brief UART5 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_UART5_Init(void)
-{
-
-  /* USER CODE BEGIN UART5_Init 0 */
-
-  /* USER CODE END UART5_Init 0 */
-
-  /* USER CODE BEGIN UART5_Init 1 */
-
-  /* USER CODE END UART5_Init 1 */
-  huart5.Instance = UART5;
-  huart5.Init.BaudRate = 115200;
-  huart5.Init.WordLength = UART_WORDLENGTH_8B;
-  huart5.Init.StopBits = UART_STOPBITS_1;
-  huart5.Init.Parity = UART_PARITY_NONE;
-  huart5.Init.Mode = UART_MODE_TX_RX;
-  huart5.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart5.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart5) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN UART5_Init 2 */
-
-  /* USER CODE END UART5_Init 2 */
-
-}
 #ifdef USE_FULL_ASSERT
 
 /**
@@ -594,3 +607,5 @@ void assert_failed(uint8_t* file, uint32_t line)
 /**
   * @}
   */
+
+

@@ -278,6 +278,7 @@
   */
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
+extern uint32_t count;
 /* Private function prototypes -----------------------------------------------*/
 /** @addtogroup UART_Private_Functions  UART Private Functions
   * @{
@@ -3177,7 +3178,7 @@ static HAL_StatusTypeDef UART_WaitOnFlagUntilTimeout(UART_HandleTypeDef *huart, 
 {
   /* Wait until flag is set */
   while ((__HAL_UART_GET_FLAG(huart, Flag) ? SET : RESET) == Status)
-  {
+  { count++;
     /* Check for the Timeout */
     if (Timeout != HAL_MAX_DELAY)
     {

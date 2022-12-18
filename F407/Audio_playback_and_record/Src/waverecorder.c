@@ -123,28 +123,28 @@ void WaveRecorderProcess(void)
   WaveCounter = 0;
   LEDsState = LEDS_OFF;
   
-  /* Remove Wave file if it exists on USB Flash Disk */
-  f_unlink (REC_WAVE_NAME);
+//  /* Remove Wave file if it exists on USB Flash Disk */
+//  f_unlink (REC_WAVE_NAME);
   
-  /* Open the file to write on it */
-  if ((AppliState == APPLICATION_IDLE) || (f_open(&WavFile, REC_WAVE_NAME, FA_CREATE_ALWAYS | FA_WRITE) != FR_OK))
-  {   
-    while(1)
-    {
-      /* Toggle LED5 in infinite loop to signal that: USB Flash Disk is not connected/removed
-         or an issue has occurred when creating/opening Wave file */
-      BSP_LED_Toggle(LED5);
-    }
-  }
-  else
-  {
-    WaveRecStatus = 1;
-  }
+//  /* Open the file to write on it */
+//  if ((AppliState == APPLICATION_IDLE) || (f_open(&WavFile, REC_WAVE_NAME, FA_CREATE_ALWAYS | FA_WRITE) != FR_OK))
+//  {
+//    while(1)
+//    {
+//      /* Toggle LED5 in infinite loop to signal that: USB Flash Disk is not connected/removed
+//         or an issue has occurred when creating/opening Wave file */
+//      BSP_LED_Toggle(LED5);
+//    }
+//  }
+//  else
+//  {
+//    WaveRecStatus = 1;
+//  }
   /* Initialize header file */
   WavProcess_EncInit(DEFAULT_AUDIO_IN_FREQ, pHeaderBuff);
   
-  /* Write the header Wave */
-  f_write(&WavFile, pHeaderBuff, 44, (void *)&byteswritten);
+//  /* Write the header Wave */
+//  f_write(&WavFile, pHeaderBuff, 44, (void *)&byteswritten);
 
   /* Increment the Wave counter */  
   BufferCtl.fptr = byteswritten;
@@ -170,11 +170,11 @@ void WaveRecorderProcess(void)
     	memcpy((void*)(pRecBuffer+BufferCtl.fptr),(const void*)((uint8_t*)WrBuffer+AUDIOBuffOffset),WR_BUFFER_SIZE);
 
         /* write buffer in file */
-        if(f_write(&WavFile, (uint8_t*)(WrBuffer+AUDIOBuffOffset), WR_BUFFER_SIZE, (void*)&byteswritten) != FR_OK)
-        {
-          Error_Handler();
-        }
-        BufferCtl.fptr += byteswritten;
+//        if(f_write(&WavFile, (uint8_t*)(WrBuffer+AUDIOBuffOffset), WR_BUFFER_SIZE, (void*)&byteswritten) != FR_OK)
+//        {
+//          Error_Handler();
+//        }
+        BufferCtl.fptr += WR_BUFFER_SIZE;
         /* update buffer offset */
        // pRecBufferOffset = BufferCtl.fptr;
         AUDIODataReady = 0;
@@ -201,24 +201,24 @@ void WaveRecorderProcess(void)
       /* Turning off LEDs */
       LEDsState = LEDS_OFF;
       AUDIODataReady = 0;
-      //HAL_UART_Transmit(&huart5, pRecBuffer, SIZE_OF_RECORD_BUFFER, 1500);
+//      HAL_UART_Transmit(&huart5, pRecBuffer, SIZE_OF_RECORD_BUFFER, 15000);
+      HAL_UART_Transmit(&huart5, pRecBuffer, 44, 15000);
       break;
     }
   }
   
-  /* Update the data length in the header of the recorded Wave */    
-  f_lseek(&WavFile, 0);
+//  /* Update the data length in the header of the recorded Wave */
+//  f_lseek(&WavFile, 0);
+//  f_write(&WavFile, pHeaderBuff, 44, (void*)&byteswritten);
   
   /* Parse the wav file header and extract required information */
   WavProcess_HeaderUpdate(pHeaderBuff, &WaveFormat);
-  f_write(&WavFile, pHeaderBuff, 44, (void*)&byteswritten);
-  
   /* Write the header in the RecBuffer*/
   memcpy((void*)(pRecBuffer),(const void*)pHeaderBuff,44);
 
-  /* Close file and unmount MyFilesystem */
-  f_close (&WavFile);
-  f_mount(NULL, 0, 1);
+//  /* Close file and unmount MyFilesystem */
+//  f_close (&WavFile);
+//  f_mount(NULL, 0, 1);
   
   /* Change Command Index to Play */
   CmdIndex = CMD_STOP;
