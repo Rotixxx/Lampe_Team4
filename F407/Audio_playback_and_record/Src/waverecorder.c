@@ -30,6 +30,26 @@ typedef struct {
 /* Private define ------------------------------------------------------------*/
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
+
+struct tc_ccm_mode_struct c;
+struct tc_aes_key_sched_struct sched;
+
+const uint8_t key[16] = {
+		0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7,
+		0xc8, 0xc9, 0xca, 0xcb, 0xcc, 0xcd, 0xce, 0xcf
+	};
+	uint8_t nonce[NONCE_LEN] = {
+		0x00, 0x00, 0x00, 0x03, 0x02, 0x01, 0x00, 0xa0,
+		0xa1, 0xa2, 0xa3, 0xa4, 0xa5
+	};
+	const uint8_t hdr[HEADER_LEN] = {
+		0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07
+	};
+
+// creat array for encrypted msg
+uint8_t ciphertext[TC_CCM_MAX_CT_SIZE+M_LEN8];
+int result = TC_PASS;
+
 /* Wave recorded counter.*/
 __IO uint32_t WaveCounter = 0;
 
@@ -166,8 +186,7 @@ void WaveRecorderProcess(void)
       /* Check if there are Data to write in Usb Key */
       if(AUDIODataReady == 1)
       {
-
-    	memcpy((void*)(pRecBuffer+BufferCtl.fptr),(const void*)((uint8_t*)WrBuffer+AUDIOBuffOffset),WR_BUFFER_SIZE);
+       	memcpy((void*)(pRecBuffer+BufferCtl.fptr),(const void*)((uint8_t*)WrBuffer+AUDIOBuffOffset),WR_BUFFER_SIZE);
 
         /* write buffer in file */
 //        if(f_write(&WavFile, (uint8_t*)(WrBuffer+AUDIOBuffOffset), WR_BUFFER_SIZE, (void*)&byteswritten) != FR_OK)
@@ -201,8 +220,37 @@ void WaveRecorderProcess(void)
       /* Turning off LEDs */
       LEDsState = LEDS_OFF;
       AUDIODataReady = 0;
-//      HAL_UART_Transmit(&huart5, pRecBuffer, SIZE_OF_RECORD_BUFFER, 15000);
-      HAL_UART_Transmit(&huart5, pRecBuffer, 44, 15000);
+
+	  //set encryption Key
+	  tc_aes128_set_encrypt_key(&sched, (const uint8_t *)key);
+      for (int i=0; i<NUMBER_OF_AES_BLOCKS; i++)
+      {
+
+    	  // change nonce value for every new transmit,
+    	  // increase first nonce byte b for loop counter i
+    	  // TODO: change this to call tinycrypt prng
+//    	  nonce[0] = nonce[0]+i;
+
+		  result = tc_ccm_config(&c, &sched, nonce, NONCE_LEN, M_LEN8);
+
+		  // encrypt msg (counter)
+		  result = tc_ccm_generation_encryption(
+				  ciphertext,
+				  TC_CCM_MAX_CT_SIZE+M_LEN8,
+				  hdr,
+				  HEADER_LEN,
+				  pRecBuffer+i*TC_CCM_MAX_CT_SIZE,
+				  TC_CCM_MAX_CT_SIZE,
+				  &c);
+
+		  /* Transmit cipher text over uart*/
+		  HAL_UART_Transmit(&huart5, hdr, HEADER_LEN, 15000);
+		  HAL_UART_Transmit(&huart5, nonce, NONCE_LEN, 15000);
+		  HAL_UART_Transmit(&huart5, ciphertext, TC_CCM_MAX_CT_SIZE+M_LEN8, 15000);
+
+      }
+
+
       break;
     }
   }

@@ -28,7 +28,11 @@
 #include <stdio.h>
 #include "stm32f4xx_it.h"
 #include "waveplayer.h"
+
 #include <tinycrypt/aes.h>
+#include <tinycrypt/ccm_mode.h>
+#include <tinycrypt/constants.h>
+
 #include "string.h"
 #include "stm32f4xx_hal_conf.h"
 

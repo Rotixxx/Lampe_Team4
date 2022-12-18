@@ -30,25 +30,15 @@ uint8_t RecBuffer[SIZE_OF_RECORD_BUFFER] = {0};
 uint8_t* pRecBuffer = RecBuffer;
 uint32_t pRecBufferOffset = 0;	// set buffer offset to 0 -> Header
 
-uint8_t str[] = "Hase!";
-uint8_t* pstr = str;
-
-struct tc_aes_key_sched_struct s_client;
-struct tc_aes_key_sched_struct s_server;
-
 UART_HandleTypeDef huart5;
 static void MX_UART5_Init(void);
 
 // test counter for UART -> is used in hal_uart.c
 uint32_t count = 0;
 
-// Set the AES Key and output it
-const char *key = "That's my Kung Fu";
-const char mes[4096] = {1,0};
-const char *message = mes;
+//const char mes[4096] = "Mein und deine sind seine und feine und wenn ich ncoh mehr sache nschreiben ,dasnn sdes isci ha öasldkf ha sdlfkh aösdkljhfaö lwkeirhf öladnksfölkasndöflkahdgflkhnasdälgfkiaäldkfnalsdknf PENIS aölsdknf öalwkeirflakscdnvlkasdfgkiadlgfkna lkdnfla ksdfl kandfl kn PENIS2 adkshfajwnerf.nkawsdfölkaidjsfvabnwdeflknawö leknfasldmkvnf öasdihfölawdkh fa,sdf aldeswf PENIS3";
+//const char *message = mes;
 
-// creat array for encrypted msg
-uint8_t cipher[TC_AES_BLOCK_SIZE + 1] ;
 
 /* Counter for User button presses. Defined as external in waveplayer.c file */
 __IO uint32_t PressCount = 0;
@@ -152,24 +142,6 @@ int main(void)
 //    /*##-4- Start Host Process ###############################################*/
 //    USBH_Start(&hUSB_Host);
 //
-    // cipher memory to 0
-    memset(cipher, 0, TC_AES_BLOCK_SIZE + 1);
-
-	//set encryption Key
-	tc_aes128_set_encrypt_key(&s_client, (const uint8_t *)key);
-
-	// encrypt msg (counter) and out put it
-	tc_aes_encrypt(cipher, (const uint8_t *)message, &s_client);
-
-	// create array with length of payload and overwrite it with 0s
-	uint8_t result[TC_AES_BLOCK_SIZE + 1] ;
-	memset(result, 0, TC_AES_BLOCK_SIZE + 1);
-
-	// set the decryption key
-	tc_aes128_set_decrypt_key(&s_server, (const uint8_t *)key);
-
-	//decrypt msg and output it
-	tc_aes_decrypt(result, cipher, &s_server);
 
     /* Run Application (Blocking mode)*/
     while (1)
@@ -205,27 +177,27 @@ int main(void)
   * @retval None
   */
 static void USBH_UserProcess (USBH_HandleTypeDef *pHost, uint8_t vId)
-{  
+{
   switch (vId)
-  { 
+  {
   case HOST_USER_SELECT_CONFIGURATION:
     break;
-    
+
   case HOST_USER_DISCONNECTION:
     WavePlayer_CallBack();
     AppliState = APPLICATION_IDLE;
-    f_mount(NULL, (TCHAR const*)"", 0);          
+    f_mount(NULL, (TCHAR const*)"", 0);
     break;
-    
+
   case HOST_USER_CLASS_ACTIVE:
     AppliState = APPLICATION_START;
     break;
-    
+
   case HOST_USER_CONNECTION:
     break;
-    
+
   default:
-    break; 
+    break;
   }
 }
 
@@ -241,23 +213,23 @@ static void MSC_Application(void)
   case USBH_USR_AUDIO:
     /* Go to Audio menu */
     COMMAND_AudioExecuteApplication();
-    
+
     /* Set user initialization flag */
     USBH_USR_ApplicationState = USBH_USR_FS_INIT;
     break;
-    
+
   case USBH_USR_FS_INIT:
     /* Initializes the File System */
-    if (f_mount(&USBDISKFatFs, (TCHAR const*)USBDISKPath, 0 ) != FR_OK ) 
+    if (f_mount(&USBDISKFatFs, (TCHAR const*)USBDISKPath, 0 ) != FR_OK )
     {
       /* FatFs initialisation fails */
       Error_Handler();
     }
-    
+
     /* Go to menu */
     USBH_USR_ApplicationState = USBH_USR_AUDIO;
     break;
-    
+
   default:
     break;
   }
