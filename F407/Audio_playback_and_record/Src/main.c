@@ -33,6 +33,9 @@ uint32_t pRecBufferOffset = 0;	// set buffer offset to 0 -> Header
 UART_HandleTypeDef huart5;
 static void MX_UART5_Init(void);
 
+uint32_t LastDebounceTime = 0;
+uint32_t DebounceTime = 100;
+
 // test counter for UART -> is used in hal_uart.c
 uint32_t count = 0;
 
@@ -521,7 +524,10 @@ void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
   */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-  if(GPIO_Pin == GPIO_PIN_0) 
+  DebounceTime = HAL_GetTick();
+  DebounceTime=DebounceTime-LastDebounceTime;
+
+  if(GPIO_Pin == GPIO_PIN_0 && DebounceTime>50)
   {
     if (PbPressCheck == 0)
     {
@@ -552,6 +558,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     {
       PbPressCheck = 0;
     }
+    LastDebounceTime = HAL_GetTick();
   }
 } 
 

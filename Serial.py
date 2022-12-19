@@ -7,6 +7,7 @@ import json
 import os
 import os.path 
 from os import path 
+from time import sleep 
 import sys 
 from gpiozero import LED
 import gpiozero.pins.rpigpio
@@ -53,10 +54,13 @@ def send_to_rhasspy(recording):
         else:
             errorLED.on()
             print("unknown command")
+            sleep(2)
+            errorLED.off
     except:
         print("unknown error")
-        errorLED.on()      
-
+        errorLED.on()
+        sleep(2)
+        errorLED.off
 
 
 while True:
@@ -94,8 +98,6 @@ while True:
                 counter = 0
             sleep(0.1)
             send_to_rhasspy(audio_data)
-              sleep(0.5)
-            errorLED.off()
             audio_data=bytearray(b'')
     sleep(0.1)
-            -
+    errorLED.off()
