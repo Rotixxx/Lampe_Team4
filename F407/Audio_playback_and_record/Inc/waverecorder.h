@@ -38,7 +38,7 @@
 // AES CCM Mode constants
 // https://github.com/intel/tinycrypt/blob/master/tests/test_ccm_mode.c
 #define TC_CCM_MAX_CT_SIZE 4088
-#define TC_CCM_MAX_PT_SIZE 25
+#define TC_CCM_MAX_PT_SIZE 44
 #define TC_PASS 0
 #define TC_FAIL 1
 #define M_LEN8 8

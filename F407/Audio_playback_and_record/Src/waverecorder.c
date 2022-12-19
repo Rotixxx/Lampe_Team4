@@ -48,7 +48,10 @@ const uint8_t key[16] = {
 
 // creat array for encrypted msg
 uint8_t ciphertext[TC_CCM_MAX_CT_SIZE+M_LEN8];
+uint8_t decrypted[TC_CCM_MAX_CT_SIZE+M_LEN8];
+
 int result = TC_PASS;
+
 
 /* Wave recorded counter.*/
 __IO uint32_t WaveCounter = 0;
@@ -207,7 +210,7 @@ void WaveRecorderProcess(void)
         /* Switch Command Index to Play */
         CmdIndex = CMD_STOP;
         /* Toggoling LED6 to signal Play */
-        LEDsState = LEDS_OFF;
+        LEDsState = LED4_TOGGLE;
         break;
       }
     }
@@ -217,58 +220,58 @@ void WaveRecorderProcess(void)
       WaveRecorderStop();
       /* Change Command Index to IDLE */
       CmdIndex = CMD_STOP;
-      /* Turning off LEDs */
-      LEDsState = LEDS_OFF;
+      /* Turn on BLUE LED for transmission */
+      LEDsState = LED6_TOGGLE;
       AUDIODataReady = 0;
 
-	  //set encryption Key
-	  tc_aes128_set_encrypt_key(&sched, (const uint8_t *)key);
-      for (int i=0; i<NUMBER_OF_AES_BLOCKS; i++)
-      {
 
-    	  // change nonce value for every new transmit,
-    	  // increase first nonce byte b for loop counter i
-    	  // TODO: change this to call tinycrypt prng
-//    	  nonce[0] = nonce[0]+i;
+      //  /* Update the data length in the header of the recorded Wave */
+      //  f_lseek(&WavFile, 0);
+      //  f_write(&WavFile, pHeaderBuff, 44, (void*)&byteswritten);
 
-		  result = tc_ccm_config(&c, &sched, nonce, NONCE_LEN, M_LEN8);
+        //set encryption Key
+        tc_aes128_set_encrypt_key(&sched, (const uint8_t *)key);
 
-		  // encrypt msg (counter)
-		  result = tc_ccm_generation_encryption(
-				  ciphertext,
-				  TC_CCM_MAX_CT_SIZE+M_LEN8,
-				  hdr,
-				  HEADER_LEN,
-				  pRecBuffer+i*TC_CCM_MAX_CT_SIZE,
-				  TC_CCM_MAX_CT_SIZE,
-				  &c);
+        /* Parse the wav file header and extract required information */
+        WavProcess_HeaderUpdate(pHeaderBuff, &WaveFormat);
+        /* Write the header in the RecBuffer*/
+        memcpy((void*)(pRecBuffer),(const void*)pHeaderBuff,44);
 
-		  /* Transmit cipher text over uart*/
-		  HAL_UART_Transmit(&huart5, hdr, HEADER_LEN, 15000);
-		  HAL_UART_Transmit(&huart5, nonce, NONCE_LEN, 15000);
-		  HAL_UART_Transmit(&huart5, ciphertext, TC_CCM_MAX_CT_SIZE+M_LEN8, 15000);
+        for (int i=0; i<NUMBER_OF_AES_BLOCKS; i++)
+        {
 
-      }
+      	  // change nonce value for every new transmit,
+      	  // increase first nonce byte b for loop counter i
+      	  // TODO: change this to call tinycrypt prng
+          	  nonce[0] = nonce[0]+i;
 
+      	  result = tc_ccm_config(&c, &sched, nonce, NONCE_LEN, M_LEN8);
+
+      	  // encrypt msg (counter)
+      	  result = tc_ccm_generation_encryption(
+      			  ciphertext,
+      			  TC_CCM_MAX_CT_SIZE+M_LEN8,
+      			  hdr,
+      			  HEADER_LEN,
+      			  pRecBuffer+i*TC_CCM_MAX_CT_SIZE,
+      			  TC_CCM_MAX_CT_SIZE,
+      			  &c);
+      //
+      //	  result = tc_ccm_decryption_verification(decrypted, TC_CCM_MAX_PT_SIZE, hdr,
+      //	  						HEADER_LEN, ciphertext, 52, &c);
+
+      	  /* Transmit cipher text over uart*/
+      	  HAL_UART_Transmit(&huart5, hdr, HEADER_LEN, 15000);
+      	  HAL_UART_Transmit(&huart5, nonce, NONCE_LEN, 15000);
+      	  HAL_UART_Transmit(&huart5, ciphertext, TC_CCM_MAX_CT_SIZE+M_LEN8, 15000);
+
+
+        }
 
       break;
     }
   }
-  
-//  /* Update the data length in the header of the recorded Wave */
-//  f_lseek(&WavFile, 0);
-//  f_write(&WavFile, pHeaderBuff, 44, (void*)&byteswritten);
-  
-  /* Parse the wav file header and extract required information */
-  WavProcess_HeaderUpdate(pHeaderBuff, &WaveFormat);
-  /* Write the header in the RecBuffer*/
-  memcpy((void*)(pRecBuffer),(const void*)pHeaderBuff,44);
-
-//  /* Close file and unmount MyFilesystem */
-//  f_close (&WavFile);
-//  f_mount(NULL, 0, 1);
-  
-  /* Change Command Index to Play */
+  /* Change Command Index to Stop*/
   CmdIndex = CMD_STOP;
 }
 
