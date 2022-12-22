@@ -303,7 +303,11 @@ void WaveRecorderProcess(void)
 					if (12 != j )
 					{
 						RandomNumber = GenerateNonce();
-						if (NULL != pnonce || NULL != pRandomNumber)
+						if (NULL == pnonce || NULL == pRandomNumber)
+						{
+							Error_Handler();
+						}
+						else
 						{
 							memcpy((void*)(pnonce+j),(const void*)pRandomNumber,4);
 						}
@@ -312,10 +316,14 @@ void WaveRecorderProcess(void)
 					else
 					{
 						RandomNumber = GenerateNonce();
-						if (NULL != pnonce || NULL != pRandomNumber)
+						if (NULL == pnonce || NULL == pRandomNumber)
+						{
+							Error_Handler();
+						}
+						else
 						{
 							memcpy((void*)(pnonce+j),(const void*)pRandomNumber,1);
-						{
+						}
 					}
 				}
 
@@ -327,7 +335,11 @@ void WaveRecorderProcess(void)
 				}
 
 				/* encrypt block*/
-				if (NULL != pRecBuffer)
+				if (NULL == pRecBuffer)
+				{
+					Error_Handler();
+				}
+				else
 				{
 					result = (uint8_t)tc_ccm_generation_encryption(ciphertext,
 																   TC_CCM_MAX_CT_SIZE+M_LEN8,
@@ -336,7 +348,7 @@ void WaveRecorderProcess(void)
 																   pRecBuffer+i*TC_CCM_MAX_CT_SIZE,
 																   TC_CCM_MAX_CT_SIZE,
 																   &c);
-				{
+				}
 				if (TC_CRYPTO_FAIL == result)
 				{
 					Error_Handler();
