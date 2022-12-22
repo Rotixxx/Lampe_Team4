@@ -25,9 +25,9 @@ audio_data = bytearray(b'')
 # LED Status bleibt nach Terminierung des Programms erhalten
 def close(self): pass
 gpiozero.pins.rpigpio.RPiGPIOPin.close = close
-lampLED = LED(20, initial_value=None, pin_factory=gpiozero.pins.rpigpio.RPiGPIOFactory())
+lampLED = LED(2, initial_value=None, pin_factory=gpiozero.pins.rpigpio.RPiGPIOFactory())
 errorLED = LED(18, initial_value=None, pin_factory=gpiozero.pins.rpigpio.RPiGPIOFactory())
-yellowLED = LED(21, initial_value=None, pin_factory=gpiozero.pins.rpigpio.RPiGPIOFactory())
+yellowLED = LED(3, initial_value=None, pin_factory=gpiozero.pins.rpigpio.RPiGPIOFactory())
 greenLED = LED(17, initial_value=None, pin_factory=gpiozero.pins.rpigpio.RPiGPIOFactory())
 
 # init values for rhasspy post request
