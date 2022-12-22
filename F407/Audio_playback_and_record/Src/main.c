@@ -1,8 +1,8 @@
 /**
   ******************************************************************************
   * @file    Audio/Audio_playback_and_record/Src/main.c 
-  * @author  MCD Application Team
-  * @brief   Main program body.
+  * @author  Original from MCD Application Team, this version was restructured by Sandra and Ro
+  * @brief   Main program body
   ******************************************************************************
   * @attention
   *
@@ -21,223 +21,85 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
-//
-//#define HAL_UART_MODULE_ENABLED
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef hTimLed;
 TIM_OC_InitTypeDef sConfigLed;
-uint8_t RecBuffer[SIZE_OF_RECORD_BUFFER] = {0};
-uint8_t* pRecBuffer = RecBuffer;
-uint32_t pRecBufferOffset = 0;	// set buffer offset to 0 -> Header
-
 UART_HandleTypeDef huart5;
-static void MX_UART5_Init(void);
 
+/* Buffer for audio recording*/
+uint8_t RecBuffer[SIZE_OF_RECORD_BUFFER];
+uint8_t* pRecBuffer = RecBuffer;
+
+/* debounce time measurement, in ms*/
 uint32_t LastDebounceTime = 0;
 uint32_t DebounceTime = 100;
-
-// test counter for UART -> is used in hal_uart.c
-uint32_t count = 0;
-
-//const char mes[4096] = "Mein und deine sind seine und feine und wenn ich ncoh mehr sache nschreiben ,dasnn sdes isci ha öasldkf ha sdlfkh aösdkljhfaö lwkeirhf öladnksfölkasndöflkahdgflkhnasdälgfkiaäldkfnalsdknf PENIS aölsdknf öalwkeirflakscdnvlkasdfgkiadlgfkna lkdnfla ksdfl kandfl kn PENIS2 adkshfajwnerf.nkawsdfölkaidjsfvabnwdeflknawö leknfasldmkvnf öasdihfölawdkh fa,sdf aldeswf PENIS3";
-//const char *message = mes;
-
-
-/* Counter for User button presses. Defined as external in waveplayer.c file */
-__IO uint32_t PressCount = 0;
-
-/* Wave Player Pause/Resume Status. Defined as external in waveplayer.c file */
-__IO uint32_t PauseResumeStatus = IDLE_STATUS;   
-                                                   
-extern uint32_t AudioPlayStart;
-
-/* Re-play Wave file status on/off.
-   Defined as external in waveplayer.c file */
-__IO uint32_t RepeatState = REPEAT_ON;
 
 /* Capture Compare Register Value.
    Defined as external in stm32f4xx_it.c file */
 __IO uint16_t CCR1Val = 16826;              
                                             
-extern __IO uint32_t LEDsState;
+/* LED State (Toggle or OFF)*/
+__IO uint32_t LEDsState;
 
 /* Save MEMS ID */
 uint8_t MemsID = 0; 
 
-__IO uint32_t CmdIndex = CMD_STOP;
-__IO uint32_t PbPressCheck = 0;
-
-FATFS USBDISKFatFs;          /* File system object for USB disk logical drive */
-char USBDISKPath[4];         /* USB Host logical drive path */
-USBH_HandleTypeDef hUSB_Host; /* USB Host handle */
+__IO uint32_t CmdIndex = CMD_RECORD;
 
 MSC_ApplicationTypeDef AppliState = APPLICATION_START;
-static uint8_t  USBH_USR_ApplicationState = USBH_USR_FS_INIT;
 
 /* Private function prototypes -----------------------------------------------*/
 static void TIM_LED_Config(void);
 static void SystemClock_Config(void);
-static void USBH_UserProcess(USBH_HandleTypeDef *pHost, uint8_t vId);
-static void MSC_Application(void);
 static void COMMAND_AudioExecuteApplication(void);
+static void MX_UART5_Init(void);
 
-/* Private functions ---------------------------------------------------------*/
-
-/**
-  * @brief  Main program
-  * @param  None
-  * @retval None
-  */
 int main(void)
 {
-  /* STM32F4xx HAL library initialization:
-     - Configure the Flash prefetch, instruction and Data caches
-     - Configure the Systick to generate an interrupt each 1 msec
-     - Set NVIC Group Priority to 4
-     - Global MSP (MCU Support Package) initialization
-  */
-  HAL_Init();
+	/* STM32F4xx HAL library initialization:
+	 - Configure the Flash prefetch, instruction and Data caches
+	 - Configure the Systick to generate an interrupt each 1 msec
+	 - Set NVIC Group Priority to 4
+	 - Global MSP (MCU Support Package) initialization
+	*/
+	HAL_Init();
 
-  /* Configure LED3, LED4, LED5 and LED6 */
-  BSP_LED_Init(LED3);
-  BSP_LED_Init(LED4);
-  BSP_LED_Init(LED5);
-  BSP_LED_Init(LED6);
-  
-  /* Configure the system clock to 168 MHz */
-  SystemClock_Config();
-  
-  /* Initialize MEMS Accelerometer mounted on STM32F4-Discovery board */
-  if(BSP_ACCELERO_Init() != ACCELERO_OK)
-  {
-    /* Initialization Error */
-    Error_Handler();
-  }
-  
-  MemsID = BSP_ACCELERO_ReadID();
-  
-  /* Turn ON LED4: start of application */
-  BSP_LED_On(LED4);
-  
-  /* Configure TIM4 Peripheral to manage LEDs lighting */
-  TIM_LED_Config();
-  
-  MX_UART5_Init();
+	/* Configure LED3, LED4, LED5 and LED6 */
+	BSP_LED_Init(LED3);
+	BSP_LED_Init(LED4);
+	BSP_LED_Init(LED5);
+	BSP_LED_Init(LED6);
 
-  /* Initialize the Repeat state */
-  RepeatState = REPEAT_ON;
-  
-  /* Turn OFF all LEDs */
-  LEDsState = LEDS_OFF;
-  
-  /* Configure USER Button */
-  BSP_PB_Init(BUTTON_KEY, BUTTON_MODE_EXTI);
-  
-//  /*##-1- Link the USB Host disk I/O driver ##################################*/
-//  if(FATFS_LinkDriver(&USBH_Driver, USBDISKPath) == 0)
-//  {
-//    /*##-2- Init Host Library ################################################*/
-//    USBH_Init(&hUSB_Host, USBH_UserProcess, 0);
-//
-//    /*##-3- Add Supported Class ##############################################*/
-//    USBH_RegisterClass(&hUSB_Host, USBH_MSC_CLASS);
-//
-//    /*##-4- Start Host Process ###############################################*/
-//    USBH_Start(&hUSB_Host);
-//
+	/* Configure the system clock to 168 MHz */
+	SystemClock_Config();
 
+	/* Initialize MEMS Accelerometer mounted on STM32F4-Discovery board */
+	if(BSP_ACCELERO_Init() != ACCELERO_OK)
+	{
+		/* Initialization Error */
+		Error_Handler();
+	}
+  
+	MemsID = BSP_ACCELERO_ReadID();
+  
+	/* Configure TIM4 Peripheral to manage LEDs lighting */
+	TIM_LED_Config();
+  
+	/* Configure UART5 Peripheral to manage UART transmission*/
+	MX_UART5_Init();
+
+	/* Turn OFF all LEDs */
+	LEDsState = LEDS_OFF;
+
+	/* Configure USER Button */
+	BSP_PB_Init(BUTTON_KEY, BUTTON_MODE_EXTI);
+  
     /* Run Application (Blocking mode)*/
     while (1)
     {
-    	HAL_Delay(50);
-//      switch(AppliState)
-//      {
-//      case APPLICATION_START:
-    	//COMMAND_AudioExecuteApplication();
-        //MSC_Application();
         COMMAND_AudioExecuteApplication();
-//        break;
-//      case APPLICATION_IDLE:
-//      default:
-//        break;
-//      }
-      
-//      /* USBH_Background Process */
-//      USBH_Process(&hUSB_Host);
     }
-//  }
-  
-//  /* TrueStudio compilation error correction */
-//  while (1)
-//  {
-//  }
 }
-
-/**
-  * @brief  User Process
-  * @param  phost: Host Handle
-  * @param  id: Host Library user message ID
-  * @retval None
-  */
-static void USBH_UserProcess (USBH_HandleTypeDef *pHost, uint8_t vId)
-{
-  switch (vId)
-  {
-  case HOST_USER_SELECT_CONFIGURATION:
-    break;
-
-  case HOST_USER_DISCONNECTION:
-    WavePlayer_CallBack();
-    AppliState = APPLICATION_IDLE;
-    f_mount(NULL, (TCHAR const*)"", 0);
-    break;
-
-  case HOST_USER_CLASS_ACTIVE:
-    AppliState = APPLICATION_START;
-    break;
-
-  case HOST_USER_CONNECTION:
-    break;
-
-  default:
-    break;
-  }
-}
-
-/**
-  * @brief  Main routine for Mass storage application
-  * @param  None
-  * @retval None
-  */
-static void MSC_Application(void)
-{
-  switch (USBH_USR_ApplicationState)
-  {
-  case USBH_USR_AUDIO:
-    /* Go to Audio menu */
-    COMMAND_AudioExecuteApplication();
-
-    /* Set user initialization flag */
-    USBH_USR_ApplicationState = USBH_USR_FS_INIT;
-    break;
-
-  case USBH_USR_FS_INIT:
-    /* Initializes the File System */
-    if (f_mount(&USBDISKFatFs, (TCHAR const*)USBDISKPath, 0 ) != FR_OK )
-    {
-      /* FatFs initialisation fails */
-      Error_Handler();
-    }
-
-    /* Go to menu */
-    USBH_USR_ApplicationState = USBH_USR_AUDIO;
-    break;
-
-  default:
-    break;
-  }
-}
-
 
 /**
   * @brief UART5 Initialization Function
@@ -246,30 +108,18 @@ static void MSC_Application(void)
   */
 static void MX_UART5_Init(void)
 {
-
-  /* USER CODE BEGIN UART5_Init 0 */
-
-  /* USER CODE END UART5_Init 0 */
-
-  /* USER CODE BEGIN UART5_Init 1 */
-
-  /* USER CODE END UART5_Init 1 */
-  huart5.Instance = UART5;
-  huart5.Init.BaudRate = 115200;
-  huart5.Init.WordLength = UART_WORDLENGTH_8B;
-  huart5.Init.StopBits = UART_STOPBITS_1;
-  huart5.Init.Parity = UART_PARITY_NONE;
-  huart5.Init.Mode = UART_MODE_TX_RX;
-  huart5.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart5.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart5) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN UART5_Init 2 */
-
-  /* USER CODE END UART5_Init 2 */
-
+	huart5.Instance = UART5;
+	huart5.Init.BaudRate = 115200;
+	huart5.Init.WordLength = UART_WORDLENGTH_8B;
+	huart5.Init.StopBits = UART_STOPBITS_1;
+	huart5.Init.Parity = UART_PARITY_NONE;
+	huart5.Init.Mode = UART_MODE_TX_RX;
+	huart5.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+	huart5.Init.OverSampling = UART_OVERSAMPLING_16;
+	if (HAL_UART_Init(&huart5) != HAL_OK)
+	{
+		Error_Handler();
+	}
 }
 
 /**
@@ -279,32 +129,25 @@ static void MX_UART5_Init(void)
   */
 static void COMMAND_AudioExecuteApplication(void)
 {
-  /* Execute the command switch the command index */
-  switch (CmdIndex)
-  {
-//    /* Start Playing from USB Flash memory */
-//  case CMD_PLAY:
-//    if (RepeatState == REPEAT_ON)
-//      WavePlayerStart();
-//    break;
-    
-    /* Start Recording in USB Flash memory */ 
-  case CMD_RECORD:
-//    RepeatState = REPEAT_ON;
-    WaveRecorderProcess();
-    break;
-
-   /* Go into idle state, if not recording*/
-  case CMD_STOP:
-	if (LEDsState != LED4_TOGGLE)		// when first coming intp this routine
+	/* Execute the command switch the command index */
+	switch (CmdIndex)
 	{
-		LEDsState = LED4_TOGGLE;
-	}
-	break;
+		/* Start Recording in RecBuffer */
+		case CMD_RECORD:
+			WaveRecorderProcess();
+			break;
 
-  default:
-    break;
-  }
+			/* Go into idle state, if not recording*/
+		case CMD_STOP:
+			if (LEDsState != LED4_TOGGLE)
+			{
+				LEDsState = LED4_TOGGLE;
+			}
+			break;
+
+		default:
+			break;
+	}
 }
 
 /**
@@ -329,54 +172,48 @@ static void COMMAND_AudioExecuteApplication(void)
   */
 static void SystemClock_Config(void)
 {
-  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
-  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+	RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+	RCC_OscInitTypeDef RCC_OscInitStruct = {0};
 
-  /* Enable Power Control clock */
-  __HAL_RCC_PWR_CLK_ENABLE();
+	/* Enable Power Control clock */
+	__HAL_RCC_PWR_CLK_ENABLE();
   
-  /* The voltage scaling allows optimizing the power consumption when the device is 
+	/* The voltage scaling allows optimizing the power consumption when the device is
      clocked below the maximum system frequency, to update the voltage scaling value 
      regarding system frequency refer to product datasheet.  */
-  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+	__HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
   
-  /** Initializes the RCC Oscillators according to the specified parameters
-  * in the RCC_OscInitTypeDef structure.
-  */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLM = 8;
-  RCC_OscInitStruct.PLL.PLLN = 50;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV4;
-  RCC_OscInitStruct.PLL.PLLQ = 7;
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-  {
-    Error_Handler();
-  }
+	/** Initializes the RCC Oscillators according to the specified parameters
+	 * in the RCC_OscInitTypeDef structure.
+	 */
+	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+	RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+	RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+	RCC_OscInitStruct.PLL.PLLM = 8;
+	RCC_OscInitStruct.PLL.PLLN = 50;
+	RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV4;
+	RCC_OscInitStruct.PLL.PLLQ = 7;
+	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+	{
+		Error_Handler();
+	}
 
-  /** Initializes the CPU, AHB and APB buses clocks
-  */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+	/** Initializes the CPU, AHB and APB buses clocks
+	 */
+	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
-  {
-    Error_Handler();
-  }
+	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+	{
+		Error_Handler();
+	}
 
-//  /* STM32F405x/407x/415x/417x Revision Z devices: prefetch is supported  */
-//  if (HAL_GetREVID() == 0x1001)
-//  {
-//    /* Enable the Flash prefetch */
-//    __HAL_FLASH_PREFETCH_BUFFER_ENABLE();
-//  }
 }
 
 /**
@@ -386,64 +223,64 @@ static void SystemClock_Config(void)
   */
 static void TIM_LED_Config(void)
 {
-  uint16_t prescalervalue = 0;
-  uint32_t tmpvalue = 0;
+	uint16_t prescalervalue = 0;
+	uint32_t tmpvalue = 0;
 
-  /* TIM4 clock enable */
-  __HAL_RCC_TIM4_CLK_ENABLE();
+	/* TIM4 clock enable */
+	__HAL_RCC_TIM4_CLK_ENABLE();
 
-  /* Enable the TIM4 global Interrupt */
-  HAL_NVIC_SetPriority(TIM4_IRQn, 6, 0);  
-  HAL_NVIC_EnableIRQ(TIM4_IRQn);
+	/* Enable the TIM4 global Interrupt */
+	HAL_NVIC_SetPriority(TIM4_IRQn, 6, 0);
+	HAL_NVIC_EnableIRQ(TIM4_IRQn);
   
-  /* -----------------------------------------------------------------------
-  TIM4 Configuration: Output Compare Timing Mode:  
-    To get TIM4 counter clock at 550 KHz, the prescaler is computed as follows:
-    Prescaler = (TIM4CLK / TIM4 counter clock) - 1
-    Prescaler = ((f(APB1) * 2) /550 KHz) - 1
+	/* -----------------------------------------------------------------------
+  	  TIM4 Configuration: Output Compare Timing Mode:
+    	To get TIM4 counter clock at 550 KHz, the prescaler is computed as follows:
+    	Prescaler = (TIM4CLK / TIM4 counter clock) - 1
+    	Prescaler = ((f(APB1) * 2) /550 KHz) - 1
   
-    CC update rate = TIM4 counter clock / CCR_Val = 32.687 Hz
-    ==> Toggling frequency = 16.343 Hz  
+    	CC update rate = TIM4 counter clock / CCR_Val = 32.687 Hz
+    	==> Toggling frequency = 16.343 Hz
   ----------------------------------------------------------------------- */
   
   /* Compute the prescaler value */
-  tmpvalue = HAL_RCC_GetPCLK1Freq();
-  prescalervalue = (uint16_t) ((tmpvalue * 2) / 550000) - 1;
+	tmpvalue = HAL_RCC_GetPCLK1Freq();
+	prescalervalue = (uint16_t) ((tmpvalue * 2) / 550000) - 1;
   
-  /* Time base configuration */
-  hTimLed.Instance = TIM4;
-  hTimLed.Init.Period = 65535;
-  hTimLed.Init.Prescaler = prescalervalue;
-  hTimLed.Init.ClockDivision = 0;
-  hTimLed.Init.CounterMode = TIM_COUNTERMODE_UP;
-  if(HAL_TIM_OC_Init(&hTimLed) != HAL_OK)
-  {
-    /* Initialization Error */
-    Error_Handler();
-  }
+	/* Time base configuration */
+	hTimLed.Instance = TIM4;
+	hTimLed.Init.Period = 65535;
+	hTimLed.Init.Prescaler = prescalervalue;
+	hTimLed.Init.ClockDivision = 0;
+	hTimLed.Init.CounterMode = TIM_COUNTERMODE_UP;
+	if(HAL_TIM_OC_Init(&hTimLed) != HAL_OK)
+	{
+		/* Start Error */
+		Error_Handler();
+	}
   
-  /* Output Compare Timing Mode configuration: Channel1 */
-  sConfigLed.OCMode = TIM_OCMODE_TIMING;
-  sConfigLed.OCIdleState = TIM_OCIDLESTATE_SET;
-  sConfigLed.Pulse = CCR1Val;
-  sConfigLed.OCPolarity = TIM_OCPOLARITY_HIGH;
-  sConfigLed.OCNPolarity = TIM_OCNPOLARITY_HIGH;
-  sConfigLed.OCFastMode = TIM_OCFAST_ENABLE;
-  sConfigLed.OCNIdleState = TIM_OCNIDLESTATE_SET;
+	/* Output Compare Timing Mode configuration: Channel1 */
+	sConfigLed.OCMode = TIM_OCMODE_TIMING;
+	sConfigLed.OCIdleState = TIM_OCIDLESTATE_SET;
+	sConfigLed.Pulse = CCR1Val;
+	sConfigLed.OCPolarity = TIM_OCPOLARITY_HIGH;
+	sConfigLed.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+	sConfigLed.OCFastMode = TIM_OCFAST_ENABLE;
+	sConfigLed.OCNIdleState = TIM_OCNIDLESTATE_SET;
   
-  /* Initialize the TIM4 Channel1 with the structure above */
-  if(HAL_TIM_OC_ConfigChannel(&hTimLed, &sConfigLed, TIM_CHANNEL_1) != HAL_OK)
-  {
-    /* Initialization Error */
-    Error_Handler();
-  }
+	/* Initialize the TIM4 Channel1 with the structure above */
+	if(HAL_TIM_OC_ConfigChannel(&hTimLed, &sConfigLed, TIM_CHANNEL_1) != HAL_OK)
+	{
+		/* Start Error */
+		Error_Handler();
+	}
 
-  /* Start the Output Compare */
-  if(HAL_TIM_OC_Start_IT(&hTimLed, TIM_CHANNEL_1) != HAL_OK)
-  {
-    /* Start Error */
-    Error_Handler();
-  }
+	/* Start the Output Compare */
+	if(HAL_TIM_OC_Start_IT(&hTimLed, TIM_CHANNEL_1) != HAL_OK)
+	{
+		/* Start Error */
+		Error_Handler();
+	}
 }
 
 /**
@@ -453,11 +290,12 @@ static void TIM_LED_Config(void)
   */
 void Error_Handler(void)
 {
-  /* Turn LED3 on */
-  BSP_LED_On(LED3);
-  while(1)
-  {
-  }
+	/* Turn red LED on */
+	BSP_LED_On(LED5);
+	/* stays in this loop, until user resets STM32F407 Discovery */
+	while(1)
+	{
+	}
 }
 
 /**
@@ -467,54 +305,45 @@ void Error_Handler(void)
   */
 void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
 {
-  uint32_t capture = 0; 
+	uint32_t capture = 0;
+
+	/* Toggle orange LED*/
+	if (LEDsState == LED3_TOGGLE)
+	{
+		BSP_LED_Toggle(LED3);
+		BSP_LED_Off(LED6);
+		BSP_LED_Off(LED4);
+	}
+
+	/* Toggle green LED*/
+	else if (LEDsState == LED4_TOGGLE)
+	{
+		BSP_LED_Toggle(LED4);
+		BSP_LED_Off(LED6);
+		BSP_LED_Off(LED3);
+	}
+
+	/* Toggle Blue LED*/
+	else if (LEDsState == LED6_TOGGLE)
+	{
+		/* Toggling LED6 */
+		BSP_LED_Off(LED3);
+		BSP_LED_Off(LED4);
+		BSP_LED_Toggle(LED6);
+	}
+	else if (LEDsState == LEDS_OFF)
+	{
+		/* Turn OFF all LEDs */
+		BSP_LED_Off(LED3);
+		BSP_LED_Off(LED4);
+		BSP_LED_Off(LED5);
+		BSP_LED_Off(LED6);
+	}
+	/* Get the TIM4 Input Capture 1 value */
+	capture = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
   
-  /* Set click recognition only for L1S302DL*/
-  if ((AudioPlayStart != 0x00) && (MemsID == I_AM_LIS302DL))
-  {
-    /* Read click and status registers*/
-    BSP_ACCELERO_Click_ITClear();  
-  }
-  
-  if (LEDsState == LED3_TOGGLE)
-  {
-    /* Toggling LED3 */
-    BSP_LED_Toggle(LED3);
-    BSP_LED_Off(LED6);
-    BSP_LED_Off(LED4);
-  }
-  else if (LEDsState == LED4_TOGGLE)
-  {
-    /* Toggling LED4 */
-    BSP_LED_Toggle(LED4);
-    BSP_LED_Off(LED6);
-    BSP_LED_Off(LED3);
-  }
-  else if (LEDsState == LED6_TOGGLE)
-  {
-    /* Toggling LED6 */
-    BSP_LED_Off(LED3);
-    BSP_LED_Off(LED4);
-    BSP_LED_Toggle(LED6);
-  }
-  else if (LEDsState == STOP_TOGGLE)
-  {
-    /* Turn ON LED6 */
-    BSP_LED_On(LED6);
-  }
-  else if (LEDsState == LEDS_OFF)
-  {
-    /* Turn OFF all LEDs */
-    BSP_LED_Off(LED3);
-    BSP_LED_Off(LED4);
-    BSP_LED_Off(LED5);
-    BSP_LED_Off(LED6);
-  }
-  /* Get the TIM4 Input Capture 1 value */
-  capture = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
-  
-  /* Set the TIM4 Capture Compare1 Register value */
-  __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_1, (CCR1Val + capture));
+	/* Set the TIM4 Capture Compare1 Register value */
+	__HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_1, (CCR1Val + capture));
 }
 
  /**
@@ -524,67 +353,31 @@ void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
   */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-  DebounceTime = HAL_GetTick();
-  DebounceTime=DebounceTime-LastDebounceTime;
+	/* set tick to current debounce time*/
+	DebounceTime = HAL_GetTick();
 
-  if(GPIO_Pin == GPIO_PIN_0 && DebounceTime>50)
-  {
-    if (PbPressCheck == 0)
-    {
-//      HAL_Delay(10);
-      /* Test on the command: Recording */
-      if (CmdIndex == CMD_RECORD)
-      {
-        //RepeatState = REPEAT_ON;
-        
-        /* Switch to Play command */
-        CmdIndex = CMD_STOP;
-      }
-      /* Test on the command: Playing */
-      else if (CmdIndex == CMD_STOP)
-      {
-        /* Switch to Record command */
-        CmdIndex = CMD_RECORD;
-      }
-      else
-      {
-        //RepeatState = REPEAT_ON;
-        /* Default Command Index: Play command */
-        CmdIndex = CMD_STOP;
-      }
-      PbPressCheck = 1;
-    }
-    else
-    {
-      PbPressCheck = 0;
-    }
-    LastDebounceTime = HAL_GetTick();
-  }
+	/* subtract last debounce tick time with current*/
+	DebounceTime=DebounceTime-LastDebounceTime;
+
+	/* check, if EXTI0 was called, check if time since last call is bigger than 50ms*/
+	if(GPIO_Pin == GPIO_PIN_0 && DebounceTime>50)
+	{
+
+		/* Test on the command: Recording */
+		if (CmdIndex == CMD_RECORD)
+		{
+			/* Switch to stop command */
+			CmdIndex = CMD_STOP;
+		}
+
+		else
+		{
+			/* Default Command Index: Record command */
+			CmdIndex = CMD_RECORD;
+		}
+
+		/* set tick to debounce time -> will be compared in beginning of next EXTI0 callback*/
+		LastDebounceTime = HAL_GetTick();
+	}
 } 
-
-#ifdef USE_FULL_ASSERT
-
-/**
-  * @brief  Reports the name of the source file and the source line number
-  *         where the assert_param error has occurred.
-  * @param  file: pointer to the source file name
-  * @param  line: assert_param error line source number
-  * @retval None
-  */
-void assert_failed(uint8_t* file, uint32_t line)
-{ 
-  /* User can add his own implementation to report the file name and line number,
-     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
-
-  /* Infinite loop */
-  while (1)
-  {
-  }
-}
-#endif
-
-/**
-  * @}
-  */
-
 

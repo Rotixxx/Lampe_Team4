@@ -1,7 +1,7 @@
 /**
   ******************************************************************************
   * @file    Audio/Audio_playback_and_record/Src/waverecorder.c 
-  * @author  MCD Application Team
+  * @author  Original from MCD Application Team, this version was restructured by Sandra and Ro
   * @brief   I2S Audio recorder program.
   ******************************************************************************
   * @attention
@@ -22,8 +22,9 @@
 #include "string.h"
 
 /* Private typedef -----------------------------------------------------------*/
+
+/* struct for measuring offset*/
 typedef struct {
-  int32_t offset;
   uint32_t fptr;
 }Audio_BufferTypeDef;
 
@@ -34,24 +35,32 @@ typedef struct {
 struct tc_ccm_mode_struct c;
 struct tc_aes_key_sched_struct sched;
 
+/* Initialize encryption key, header and nonce*/
+/* Key is: "Sandra und Ro G4" in HEX*/
 const uint8_t key[16] = {
-		0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7,
-		0xc8, 0xc9, 0xca, 0xcb, 0xcc, 0xcd, 0xce, 0xcf
+		0x53, 0x61, 0x6e, 0x64, 0x72, 0x61, 0x20, 0x75,
+		0x6e, 0x64, 0x20, 0x52, 0x6f, 0x20, 0x47, 0x34
 	};
-	uint8_t nonce[NONCE_LEN] = {
-		0x00, 0x00, 0x00, 0x03, 0x02, 0x01, 0x00, 0xa0,
-		0xa1, 0xa2, 0xa3, 0xa4, 0xa5
-	};
+uint8_t nonce[NONCE_LEN] = {
+	0x00, 0x00, 0x00, 0x03, 0x02, 0x01, 0x00, 0xa0,
+	0xa1, 0xa2, 0xa3, 0xa4, 0xa5
+};
 	const uint8_t hdr[HEADER_LEN] = {
 		0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07
 	};
 
-// creat array for encrypted msg
+/* Nonce and random number*/
+uint8_t *pnonce = nonce;
+uint32_t RandomNumber = 0;
+uint32_t* pRandomNumber = &RandomNumber;
+
+/* array for encrypted blocks*/
 uint8_t ciphertext[TC_CCM_MAX_CT_SIZE+M_LEN8];
-uint8_t decrypted[TC_CCM_MAX_CT_SIZE+M_LEN8];
 
-int result = TC_PASS;
+/* */
+uint8_t result = 0;
 
+uint8_t uart_return = 0;
 
 /* Wave recorded counter.*/
 __IO uint32_t WaveCounter = 0;
@@ -88,6 +97,9 @@ static uint32_t WavProcess_EncInit(uint32_t Freq, uint8_t *pHeader);
 static uint32_t WavProcess_HeaderInit(uint8_t *pHeader, WAVE_FormatTypeDef *pWaveFormatStruct);
 static uint32_t WavProcess_HeaderUpdate(uint8_t *pHeader, WAVE_FormatTypeDef *pWaveFormatStruct);
 
+/* from https://stm32f4-discovery.net/2014/07/library-22-true-random-number-generator-stm32f4xx/ */
+static uint32_t GenerateNonce(void);
+
 /*  
   A single MEMS microphone MP45DT02 mounted on STM32F4-Discovery is connected 
   to the Inter-IC Sound (I2S) peripheral. The I2S is configured in master 
@@ -110,6 +122,39 @@ static uint32_t WavProcess_HeaderUpdate(uint8_t *pHeader, WAVE_FormatTypeDef *pW
   "libPDMFilter_CM4_IAR.a".
 */
 
+/**
+  * @brief  Generate random Nonce
+  * @param
+  * @retval uint32_t random number
+  */
+static uint32_t GenerateNonce(void)
+{
+	/* initialize variable to return nonce*/
+	uint32_t random_nonce = 0;
+
+	/* Enable the RNG clock source*/
+	RCC->AHB2ENR |= RCC_AHB2ENR_RNGEN;
+
+	/* RNG Peripheral enable */
+	RNG->CR |= RNG_CR_RNGEN;
+
+	/* wait until the RNG is ready*/
+	while((RNG->SR & RNG_SR_DRDY) == 0)
+	{
+		/* wait */
+	}
+
+	/* read the generated random number*/
+	random_nonce = RNG->DR;
+
+	/* Disable RNG peripheral */
+	RNG->CR &= ~RNG_CR_RNGEN;
+
+	/* Disable the RNG peripheral*/
+	RCC->AHB2ENR &= ~RCC_AHB2ENR_RNGEN;
+
+	return random_nonce;
+}
 
 /**
   * @brief  Start Audio recording.
@@ -129,7 +174,7 @@ uint8_t WaveRecorderStart(uint16_t* pBuf, uint32_t wSize)
   */
 uint32_t WaveRecorderStop(void)
 {
-  return BSP_AUDIO_IN_Stop();
+	return BSP_AUDIO_IN_Stop();
 }
 
 /**
@@ -139,140 +184,217 @@ uint32_t WaveRecorderStop(void)
   */
 void WaveRecorderProcess(void)
 {     
-  /* Current size of the recorded buffer */
-  uint32_t byteswritten = 0; 
-  memset((void*)pRecBuffer,0,SIZE_OF_RECORD_BUFFER);	// set recorder buffer to 0 for new recording
-  
-  WaveCounter = 0;
-  LEDsState = LEDS_OFF;
-  
-//  /* Remove Wave file if it exists on USB Flash Disk */
-//  f_unlink (REC_WAVE_NAME);
-  
-//  /* Open the file to write on it */
-//  if ((AppliState == APPLICATION_IDLE) || (f_open(&WavFile, REC_WAVE_NAME, FA_CREATE_ALWAYS | FA_WRITE) != FR_OK))
-//  {
-//    while(1)
-//    {
-//      /* Toggle LED5 in infinite loop to signal that: USB Flash Disk is not connected/removed
-//         or an issue has occurred when creating/opening Wave file */
-//      BSP_LED_Toggle(LED5);
-//    }
-//  }
-//  else
-//  {
-//    WaveRecStatus = 1;
-//  }
-  /* Initialize header file */
-  WavProcess_EncInit(DEFAULT_AUDIO_IN_FREQ, pHeaderBuff);
-  
-//  /* Write the header Wave */
-//  f_write(&WavFile, pHeaderBuff, 44, (void *)&byteswritten);
+	/* Current size of the recorded buffer */
+	uint32_t byteswritten = 0;
 
-  /* Increment the Wave counter */  
-  BufferCtl.fptr = byteswritten;
-  
-  BufferCtl.offset = BUFFER_OFFSET_NONE;
-  BSP_AUDIO_IN_Init(DEFAULT_AUDIO_IN_FREQ, DEFAULT_AUDIO_IN_BIT_RESOLUTION, DEFAULT_AUDIO_IN_CHANNEL_NBR);
-  BSP_AUDIO_IN_Record((uint16_t*)&InternalBuffer[0], INTERNAL_BUFF_SIZE);
-  
-  /* Reset the time recording base variable */
-  TimeRecBase = 0;
-  ITCounter = 0;
-  LEDsState = LED3_TOGGLE;
-  
-  while(AppliState != APPLICATION_IDLE)
-  { 
-    /* Wait for the recording time */  
-    if (TimeRecBase <= DEFAULT_TIME_REC)
-    {
-      /* Check if there are Data to write in Usb Key */
-      if(AUDIODataReady == 1)
-      {
-       	memcpy((void*)(pRecBuffer+BufferCtl.fptr),(const void*)((uint8_t*)WrBuffer+AUDIOBuffOffset),WR_BUFFER_SIZE);
+	/* set recorder buffer to 0 for new recording*/
+	if (NULL != pRecBuffer)
+	{
+		memset((void*)pRecBuffer,0,SIZE_OF_RECORD_BUFFER);
+	}
+	else
+	{
+		Error_Handler();
+	}
+	/* Turn OFF all LEDs */
+	LEDsState = LEDS_OFF;
 
-        /* write buffer in file */
-//        if(f_write(&WavFile, (uint8_t*)(WrBuffer+AUDIOBuffOffset), WR_BUFFER_SIZE, (void*)&byteswritten) != FR_OK)
-//        {
-//          Error_Handler();
-//        }
-        BufferCtl.fptr += WR_BUFFER_SIZE;
-        /* update buffer offset */
-       // pRecBufferOffset = BufferCtl.fptr;
-        AUDIODataReady = 0;
-      }
+	/* Initialize header file */
+	if((0 != WavProcess_EncInit(DEFAULT_AUDIO_IN_FREQ, pHeaderBuff)) && NULL == pHeaderBuff)
+	{
+		Error_Handler();
+	}
+
+	/* Increment the Wave counter */
+	BufferCtl.fptr = byteswritten;
+
+//	BufferCtl.offset = BUFFER_OFFSET_NONE;
+	if (AUDIO_OK != BSP_AUDIO_IN_Init(DEFAULT_AUDIO_IN_FREQ, DEFAULT_AUDIO_IN_BIT_RESOLUTION, DEFAULT_AUDIO_IN_CHANNEL_NBR))
+	{
+		Error_Handler();
+	}
+	if(AUDIO_OK != BSP_AUDIO_IN_Record((uint16_t*)&InternalBuffer[0], INTERNAL_BUFF_SIZE))
+	{
+		Error_Handler();
+	}
+
+	/* Reset the time recording base variable */
+	TimeRecBase = 0;
+
+	/* Reset the interrupt counter*/
+	ITCounter = 0;
+
+	/* Toggle orange LED*/
+	LEDsState = LED3_TOGGLE;
+
+	while(AppliState != APPLICATION_IDLE)
+	{
+		/* Wait for the recording time */
+		if (TimeRecBase <= DEFAULT_TIME_REC)
+		{
+			/* Check if there are Data to write in Buffer */
+			if(AUDIODataReady == 1)
+			{
+				if (NULL != pRecBuffer || NULL != WrBuffer)
+				{
+					/* write data in Buffer*/
+					memcpy((void*)(pRecBuffer+BufferCtl.fptr),(const void*)((uint8_t*)WrBuffer+AUDIOBuffOffset),WR_BUFFER_SIZE);
+				}
+				else
+				{
+					Error_Handler();
+				}
+				/* update buffer offset */
+				BufferCtl.fptr += WR_BUFFER_SIZE;
+
+				/* set flag for data back to 0*/
+				AUDIODataReady = 0;
+			}
+
+			/* User button pressed */
+			if (CmdIndex != CMD_RECORD)
+			{
+				/* Stop Audio Recording */
+				WaveRecorderStop();
+				/* Switch Command Index to Stop */
+				CmdIndex = CMD_STOP;
+				/* Toggoling Green LED to signal Stop */
+				LEDsState = LED4_TOGGLE;
+				break;
+			}
+		}
+
+		else /* End of recording time TIME_REC -> RecBuffer is full and can be encrypter and transmitted*/
+		{
+			/* Stop Audio Recording */
+			WaveRecorderStop();
+
+			/* Change Command Index to Stop */
+			CmdIndex = CMD_STOP;
+
+			/* Turn on Blue LED to signal transmission */
+			LEDsState = LED6_TOGGLE;
+
+			/* set flag for data back to 0*/
+			AUDIODataReady = 0;
       
-      /* User button pressed */
-      if (CmdIndex != CMD_RECORD)
-      {
-        /* Stop Audio Recording */
-        WaveRecorderStop();
-        /* Switch Command Index to Play */
-        CmdIndex = CMD_STOP;
-        /* Toggoling LED6 to signal Play */
-        LEDsState = LED4_TOGGLE;
-        break;
-      }
-    }
-    else /* End of recording time TIME_REC */
-    {
-      /* Stop Audio Recording */
-      WaveRecorderStop();
-      /* Change Command Index to IDLE */
-      CmdIndex = CMD_STOP;
-      /* Turn on BLUE LED for transmission */
-      LEDsState = LED6_TOGGLE;
-      AUDIODataReady = 0;
+			//set encryption Key
+			tc_aes128_set_encrypt_key(&sched, (const uint8_t *)key);
 
+			/* Parse the wav file header and extract required information */
+			if (0 != WavProcess_HeaderUpdate(pHeaderBuff, &WaveFormat))
+			{
+				Error_Handler();
+			}
 
-      //  /* Update the data length in the header of the recorded Wave */
-      //  f_lseek(&WavFile, 0);
-      //  f_write(&WavFile, pHeaderBuff, 44, (void*)&byteswritten);
+			/* Write the header in the RecBuffer*/
+			if (NULL != pRecBuffer || NULL != pHeaderBuff)
+			{
+				memcpy((void*)(pRecBuffer),(const void*)pHeaderBuff,44);
+			}
 
-        //set encryption Key
-        tc_aes128_set_encrypt_key(&sched, (const uint8_t *)key);
+			/* Encryp data in 4088 bit blocks*/
+			for (uint8_t i=0; i<NUMBER_OF_AES_BLOCKS; i++)
+			{
+				/* generate random nonce for every transmission*/
+				for (uint8_t j=0; j<NONCE_LEN; (j+=4))
+				{
+					/* set first 12 bytes of nonce with random numbers*/
+					if (12 != j )
+					{
+						RandomNumber = GenerateNonce();
+						if (NULL != pnonce || NULL != pRandomNumber)
+						{
+							memcpy((void*)(pnonce+j),(const void*)pRandomNumber,4);
+						}
+					}
+					/* set 13th byte of nonce with a random number*/
+					else
+					{
+						RandomNumber = GenerateNonce();
+						if (NULL != pnonce || NULL != pRandomNumber)
+						{
+							memcpy((void*)(pnonce+j),(const void*)pRandomNumber,1);
+						{
+					}
+				}
 
-        /* Parse the wav file header and extract required information */
-        WavProcess_HeaderUpdate(pHeaderBuff, &WaveFormat);
-        /* Write the header in the RecBuffer*/
-        memcpy((void*)(pRecBuffer),(const void*)pHeaderBuff,44);
+				/* config encryption parameter*/
+				result = (uint8_t)tc_ccm_config(&c, &sched, nonce, NONCE_LEN, M_LEN8);
+				if (TC_CRYPTO_FAIL == result)
+				{
+					Error_Handler();
+				}
 
-        for (int i=0; i<NUMBER_OF_AES_BLOCKS; i++)
-        {
+				/* encrypt block*/
+				if (NULL != pRecBuffer)
+				{
+					result = (uint8_t)tc_ccm_generation_encryption(ciphertext,
+																   TC_CCM_MAX_CT_SIZE+M_LEN8,
+																   hdr,
+																   HEADER_LEN,
+																   pRecBuffer+i*TC_CCM_MAX_CT_SIZE,
+																   TC_CCM_MAX_CT_SIZE,
+																   &c);
+				{
+				if (TC_CRYPTO_FAIL == result)
+				{
+					Error_Handler();
+				}
+				/* Transmit cipher text over uart, check for HAL_ERROR & HAL_BUSY, HAL_TIMEOUT does not apply*/
+				uart_return = (uint8_t)HAL_UART_Transmit(&huart5, hdr, HEADER_LEN, 15000);
+				if (HAL_ERROR == uart_return)
+				{
+					Error_Handler();
+				}
 
-      	  // change nonce value for every new transmit,
-      	  // increase first nonce byte b for loop counter i
-      	  // TODO: change this to call tinycrypt prng
-          	  nonce[0] = nonce[0]+i;
+				/* if ressource is busy, wait 0.5 seconds and retry the transmission, else Error_Handler()*/
+				else if (HAL_BUSY == uart_return)
+				{
+					HAL_Delay(500);
+					uart_return = (uint8_t)HAL_UART_Transmit(&huart5, hdr, HEADER_LEN, 15000);
+					if (HAL_BUSY == uart_return)
+					{
+						Error_Handler();
+					}
+				}
+				uart_return = (uint8_t)HAL_UART_Transmit(&huart5, nonce, NONCE_LEN, 15000);
+				if (HAL_ERROR == uart_return)
+					{
+						Error_Handler();
+					}
+				/* if ressource is busy, wait 0.5 seconds and retry the transmission, else Error_Handler()*/
+				else if (HAL_BUSY == uart_return)
+				{
+					HAL_Delay(500);
+					uart_return = (uint8_t)HAL_UART_Transmit(&huart5, nonce, NONCE_LEN, 15000);
+					if (HAL_BUSY == uart_return)
+					{
+						Error_Handler();
+					}
+				}
+				uart_return = (uint8_t)HAL_UART_Transmit(&huart5, ciphertext, TC_CCM_MAX_CT_SIZE+M_LEN8, 15000);
+				if (HAL_ERROR == uart_return)
+					{
+						Error_Handler();
+					}
+				/* if ressource is busy, wait 0.5 seconds and retry the transmission, else Error_Handler()*/
+				else if (HAL_BUSY == uart_return)
+				{
+					HAL_Delay(500);
+					uart_return = (uint8_t)HAL_UART_Transmit(&huart5, ciphertext, TC_CCM_MAX_CT_SIZE+M_LEN8, 15000);
+					if (HAL_BUSY == uart_return)
+					{
+						Error_Handler();
+					}
+				}
+			}
+			break;
+		}
+	}
 
-      	  result = tc_ccm_config(&c, &sched, nonce, NONCE_LEN, M_LEN8);
-
-      	  // encrypt msg (counter)
-      	  result = tc_ccm_generation_encryption(
-      			  ciphertext,
-      			  TC_CCM_MAX_CT_SIZE+M_LEN8,
-      			  hdr,
-      			  HEADER_LEN,
-      			  pRecBuffer+i*TC_CCM_MAX_CT_SIZE,
-      			  TC_CCM_MAX_CT_SIZE,
-      			  &c);
-      //
-      //	  result = tc_ccm_decryption_verification(decrypted, TC_CCM_MAX_PT_SIZE, hdr,
-      //	  						HEADER_LEN, ciphertext, 52, &c);
-
-      	  /* Transmit cipher text over uart*/
-      	  HAL_UART_Transmit(&huart5, hdr, HEADER_LEN, 15000);
-      	  HAL_UART_Transmit(&huart5, nonce, NONCE_LEN, 15000);
-      	  HAL_UART_Transmit(&huart5, ciphertext, TC_CCM_MAX_CT_SIZE+M_LEN8, 15000);
-
-
-        }
-
-      break;
-    }
-  }
-  /* Change Command Index to Stop*/
-  CmdIndex = CMD_STOP;
+	/* Change Command Index to Stop*/
+	CmdIndex = CMD_STOP;
 }
 
 /**
@@ -282,31 +404,34 @@ void WaveRecorderProcess(void)
   */
 void BSP_AUDIO_IN_TransferComplete_CallBack(void)
 {
-  /* PDM to PCM data convert */
-  BSP_AUDIO_IN_PDMToPCM((uint16_t*)&InternalBuffer[INTERNAL_BUFF_SIZE/2], (uint16_t*)&RecBuf[0]);
+	/* PDM to PCM data convert */
+	if(AUDIO_OK != BSP_AUDIO_IN_PDMToPCM((uint16_t*)&InternalBuffer[INTERNAL_BUFF_SIZE/2], (uint16_t*)&RecBuf[0]))
+		{
+			Error_Handler();
+		}
 
-  /* Copy PCM data in internal buffer */
-  memcpy((uint16_t*)&WrBuffer[ITCounter * (PCM_OUT_SIZE*2)], RecBuf, PCM_OUT_SIZE*4);
-  
-  BufferCtl.offset = BUFFER_OFFSET_NONE;
-  
-  if(ITCounter == (WR_BUFFER_SIZE/(PCM_OUT_SIZE*4))-1)	// When WrBuffer Half full
-  {
-    AUDIODataReady = 1;
-    AUDIOBuffOffset = 0;
-    ITCounter++;
+	/* Copy PCM data in internal buffer */
+	memcpy((uint16_t*)&WrBuffer[ITCounter * (PCM_OUT_SIZE*2)], RecBuf, PCM_OUT_SIZE*4);
 
-  }
-  else if(ITCounter == (WR_BUFFER_SIZE/(PCM_OUT_SIZE*2))-1)
-  {
-    AUDIODataReady = 1;
-    AUDIOBuffOffset = WR_BUFFER_SIZE/2;
-    ITCounter = 0;
-  }
-  else
-  {
-    ITCounter++;
-  }
+	  /* Check, if first half of WrBuffer full is*/
+	if(ITCounter == (WR_BUFFER_SIZE/(PCM_OUT_SIZE*4))-1)
+	{
+		AUDIODataReady = 1;
+		AUDIOBuffOffset = 0;
+		ITCounter++;
+
+	}
+	  /* Check, if second half of WrBuffer full is*/
+	else if(ITCounter == (WR_BUFFER_SIZE/(PCM_OUT_SIZE*2))-1)
+	{
+		AUDIODataReady = 1;
+		AUDIOBuffOffset = WR_BUFFER_SIZE/2;
+		ITCounter = 0;
+	}
+	else
+	{
+		ITCounter++;
+	}
 }
 
 /**
@@ -317,19 +442,22 @@ void BSP_AUDIO_IN_TransferComplete_CallBack(void)
 void BSP_AUDIO_IN_HalfTransfer_CallBack(void)
 {
   /* PDM to PCM data convert */
-  BSP_AUDIO_IN_PDMToPCM((uint16_t*)&InternalBuffer[0], (uint16_t*)&RecBuf[0]);
+  if(AUDIO_OK != BSP_AUDIO_IN_PDMToPCM((uint16_t*)&InternalBuffer[0], (uint16_t*)&RecBuf[0]))
+  {
+	  Error_Handler();
+  }
 
   /* Copy PCM data in internal buffer */
   memcpy((uint16_t*)&WrBuffer[ITCounter * (PCM_OUT_SIZE*2)], RecBuf, PCM_OUT_SIZE*4);
 
-  BufferCtl.offset = BUFFER_OFFSET_NONE;
-
+  /* Check, if first half of WrBuffer full is*/
   if(ITCounter == (WR_BUFFER_SIZE/(PCM_OUT_SIZE*4))-1)
   {
     AUDIODataReady = 1;
     AUDIOBuffOffset = 0;
     ITCounter++;
   }
+  /* Check, if second half of WrBuffer full is*/
   else if(ITCounter == (WR_BUFFER_SIZE/(PCM_OUT_SIZE*2))-1)
   {
     AUDIODataReady = 1;

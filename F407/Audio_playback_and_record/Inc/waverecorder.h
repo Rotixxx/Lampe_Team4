@@ -26,6 +26,24 @@
 
 
 /* Exported types ------------------------------------------------------------*/
+typedef struct
+{
+  uint32_t   ChunkID;       /* 0 */
+  uint32_t   FileSize;      /* 4 */
+  uint32_t   FileFormat;    /* 8 */
+  uint32_t   SubChunk1ID;   /* 12 */
+  uint32_t   SubChunk1Size; /* 16*/
+  uint16_t   AudioFormat;   /* 20 */
+  uint16_t   NbrChannels;   /* 22 */
+  uint32_t   SampleRate;    /* 24 */
+
+  uint32_t   ByteRate;      /* 28 */
+  uint16_t   BlockAlign;    /* 32 */
+  uint16_t   BitPerSample;  /* 34 */
+  uint32_t   SubChunk2ID;   /* 36 */
+  uint32_t   SubChunk2Size; /* 40 */
+
+}WAVE_FormatTypeDef;
 /* Exported Defines ----------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
 /* Defines for the Audio recording process */
@@ -39,8 +57,6 @@
 // https://github.com/intel/tinycrypt/blob/master/tests/test_ccm_mode.c
 #define TC_CCM_MAX_CT_SIZE 4088
 #define TC_CCM_MAX_PT_SIZE 44
-#define TC_PASS 0
-#define TC_FAIL 1
 #define M_LEN8 8
 #define NONCE_LEN 13
 #define HEADER_LEN 8

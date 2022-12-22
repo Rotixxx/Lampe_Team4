@@ -27,7 +27,6 @@
 #include "stm32f4_discovery_accelerometer.h"
 #include <stdio.h>
 #include "stm32f4xx_it.h"
-#include "waveplayer.h"
 
 #include <tinycrypt/aes.h>
 #include <tinycrypt/ccm_mode.h>
@@ -71,7 +70,6 @@ MSC_ApplicationTypeDef;
 #define LED4_TOGGLE      0x04  /* Toggle LED4 */
 #define LED6_TOGGLE      0x06  /* Toggle LED6 */
 #define LEDS_OFF         0x07  /* Turn OFF all LEDs */
-#define STOP_TOGGLE      0x00  /* Stop LED Toggling */
 
 /* Defines for the Audio playing process */
 #define PAUSE_STATUS     ((uint32_t)0x00) /* Audio Player in Pause Status */
